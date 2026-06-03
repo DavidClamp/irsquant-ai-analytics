@@ -1,0 +1,12 @@
+{
+    "index": "SOFR",
+    "currency": "USD",
+    "valuation_date": "2026-03-06",
+    "curve": [
+        {"tenor": "1Y", "rate": 0.0425},
+        {"tenor": "2Y", "rate": 0.0410},
+        {"tenor": "5Y", "rate": 0.0395},
+        {"tenor": "10Y", "rate": 0.0385},
+        {"tenor": "30Y", "rate": 0.0370}
+    ]
+}
