@@ -1,5 +1,6 @@
 # app.py
 import os
+import json
 import pandas as pd
 import numpy as np
 import dash
@@ -9,167 +10,172 @@ import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# Clean institutional imports from Layer 2
+# Clean institutional imports from your Layer 2 analytics engine
 from analytics import (
     build_forward_permutation_matrix, 
     run_systematic_butterfly_scan, 
-    extract_forward_curve_snapshot
+    extract_forward_curve_snapshot,
+    generate_forward_block_matrix
 )
 
-# ==========================================
-# 1. DATABASE INGESTION MAPPING
-# ==========================================
+# Resolve local path string directory to the database file
 json_path = os.path.join(os.path.dirname(__file__), 'g4_curves.json')
 if not os.path.exists(json_path):
     raise FileNotFoundError(f"Missing essential dataset file: {json_path}")
 
+# Vectorize and load multi-tenor curves
 master_df = pd.read_json(json_path)
 master_df['date'] = pd.to_datetime(master_df['date'])
 
+# Extract curve variables for component dropdown binding loops
 currencies = master_df['currency'].unique().tolist()
 dates = master_df['date'].unique()
-
-# ==========================================
-# 2. PLATFORM WIREFRAME INITIALIZATION
-# ==========================================
+# Initialize the Dash application server thread container
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.CYBORG], suppress_callback_exceptions=True)
 server = app.server
 
-# Shared Navigation Header Component Matrix
+# Shared Navigation Banner Component Matrix
 navbar = dbc.NavbarSimple(
     children=[
-        dbc.NavItem(dcc.Link("Diagnostic Charts", href="/page-diagnostics", className="nav-link text-warning fw-bold px-3")),
+        dbc.NavItem(dcc.Link("Term Structure Snapshots", href="/page-diagnostics", className="nav-link text-warning fw-bold px-3")),
         dbc.NavItem(dcc.Link("Systematic RV Scanner", href="/page-scanner", className="nav-link text-muted px-3")),
     ],
-    brand="IRSQuant Analytical Platform", brand_href="/", color="dark", dark=True, className="border-bottom border-secondary mb-4 px-4"
+    brand="IRSQuant Analytical Platform",
+    brand_href="/",
+    color="dark",
+    dark=True,
+    className="border-bottom border-secondary mb-4 px-4"
 )
 
+# Global Application Grid Container
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
     navbar,
     dbc.Container(id='page-content', fluid=True)
 ])
-
-# ==========================================
-# 3. PAGE VIEW CONFIGURATION BLUEPRINTS
-# ==========================================
-
-# Page 1 View: Term Structure Snapshots Control Panel Layout
+#  Blueprint: Term Horizon Snapshot Terminal (Upgraded to 30Y Dynamic View)
 layout_diagnostics = html.Div([
     dbc.Row([
         dbc.Col([
-            html.H3("Implied Forward Curve Snapshot Terminal", className="text-warning fw-bold mb-2"),
-            html.P("Discrete block matrix monitoring tool tracking forward curves across chosen maturities and days.", className="text-muted mb-4")
+            html.H3("Implied Forward Curve Term Snapshot Console", className="text-warning fw-bold mb-2"),
+            html.P("Dual-Regime Monitoring Engine: 1Y Forwards (0Y-10Y Horizon) | 5Y Forwards (10Y-30Y Horizon).", className="text-muted mb-4")
         ], width=12)
     ]),
+    
     dbc.Row([
-        # Configuration Sidebar
+        # Strategic selection filters configuration sidebar
         dbc.Col([
             html.Div([
-                html.H5("Data Filters", className="text-warning mb-3"),
-                html.Label("Select Currency:", className="text-light small fw-bold"),
+                html.H5("Curve Configuration", className="text-warning mb-3"),
+                
+                html.Label("Select Currency Target:", className="text-light small fw-bold"),
                 dcc.Dropdown(id='diag-ccy-dropdown', options=[{'label': c, 'value': c} for c in currencies], value='USD', className="text-dark mb-4"),
                 
-                html.Label("Select Historical Date:", className="text-light small fw-bold"),
-                dcc.Dropdown(
-                    id='diag-date-dropdown', 
-                    options=[{'label': str(pd.to_datetime(d).strftime('%Y-%m-%d')), 'value': str(pd.to_datetime(d).strftime('%Y-%m-%d'))} for d in dates], 
-                    value=str(pd.to_datetime(dates[-1]).strftime('%Y-%m-%d')), 
-                    className="text-dark mb-4"
-                ),
-                
-                html.Label("Forward Contract Tenor Length:", className="text-light small fw-bold"),
-                dcc.Dropdown(
-                    id='diag-tenor-dropdown', 
-                    options=[{'label': '1-Year Forwards', 'value': 1.0}, {'label': '2-Year Forwards', 'value': 2.0}, {'label': '5-Year Forwards', 'value': 5.0}], 
-                    value=1.0, className="text-dark"
-                )
+                html.Label("Review Historical Date:", className="text-light small fw-bold"),
+                dcc.Dropdown(id='diag-date-dropdown', placeholder="Loading latest date matrix...", className="text-dark")
             ], className="p-3 bg-dark border border-secondary rounded mb-4")
         ], width=3),
-        # Display Canvas
+
+        # Dual-Regime continuous canvas and accompanying matrix block surface panel
         dbc.Col([
-            dcc.Graph(id='diag-twin-canvas', style={'height': '520px'})
-        ], width=9)
+            dcc.Graph(id='diag-twin-canvas', style={'height': '420px'}, className="mb-4"),
+            html.H5("Continuous Implied Forward Block Matrix Surface Grid (%)", className="text-warning small fw-bold mb-2"),
+            dcc.Graph(id='diag-matrix-heatmap', style={'height': '320px'})
+        ], width=9)     
     ])
 ])
-
-# Page 2 View: RV Strategy Alpha Scanner Table Layout
+# Blueprint: Cross-Sectional Alpha Arbitrage Scanner Terminal
 layout_scanner = html.Div([
     dbc.Row([
         dbc.Col([
-            html.H3("Systematic 3-Node Forward Butterfly Scanner", className="text-warning fw-bold mb-2"),
-            html.P("Linear regression rankings console backed by real JSON data states.", className="text-muted mb-4")
+            html.H3("Systematic 3-Node Forward Curve Butterfly Scanner", className="text-warning fw-bold mb-2"),
+            html.P("Zero-constant multivariable linear regressions monitoring systematic anomalies.", className="text-muted mb-4")
         ], width=12)
     ]),
+    
     dbc.Row([
+        # Execution control panel sidebar trigger block
         dbc.Col([
             html.Div([
-                html.H5("Scan Trigger", className="text-warning mb-3"),
+                html.H5("Scan Trigger Matrix", className="text-warning mb-3"),
+                html.Label("Select Target Currency Block:", className="text-light small fw-bold"),
                 dcc.Dropdown(id='scan-ccy-dropdown', options=[{'label': c, 'value': c} for c in currencies], value='USD', className="text-dark mb-4"),
                 dbc.Button("Execute Curve Matrix Sweep", id='run-scan-btn', color="warning", className="w-100 fw-bold py-2")
             ], className="p-3 bg-dark border border-secondary rounded mb-4")
         ], width=3),
+        
+        # Interactive analytics charts canvas view area
         dbc.Col([
             dcc.Graph(id='scan-anomaly-canvas', style={'height': '400px'}, className="mb-4"),
             html.Div(id='scan-table-container', className="bg-dark p-2 border border-secondary rounded")
         ], width=9)
     ])
 ])
-
-# ==========================================
-# 4. CORE INTERFACE PROCESSING CALLFLOWS
-# ==========================================
-
-# URL Routing Driver Callback: SECURED AND ARTIFACT DEBT CLEANED
-@app.callback(
-    Output('page-content', 'children'), 
-    Input('url', 'pathname')
-)
+# URL Routing Callback: Controls active view container mapping
+@app.callback(Output('page-content', 'children'), Input('url', 'pathname'))
 def display_page(pathname):
     if pathname == '/page-scanner':
         return layout_scanner
-    # Explicitly routes any unmapped inputs or "/" to the snapshot terminal layout
-    return layout_diagnostics
+    return layout_diagnostics  # Default fallback routes index directly to Page 1 snapshot terminal
 
-# Render Term Snapshot Callback: Plots horizontal forward blocks along the horizon axes
+# Date Sync Callback: Auto-populates parameters and updates selection filter directly to the LATEST day
+@app.callback(
+    [Output('diag-date-dropdown', 'options'), Output('diag-date-dropdown', 'value')],
+    Input('diag-ccy-dropdown', 'value')
+)
+def auto_populate_and_default_to_latest_date(selected_ccy):
+    ccy_df = master_df[master_df['currency'] == selected_ccy].copy()
+    unique_dates = sorted(ccy_df['date'].unique())
+    if not unique_dates:
+        return [], None
+        
+    date_options = [{'label': pd.to_datetime(d).strftime('%Y-%m-%d'), 'value': pd.to_datetime(d).strftime('%Y-%m-%d')} for d in unique_dates]
+    latest_date_value = pd.to_datetime(unique_dates[-1]).strftime('%Y-%m-%d')
+    return date_options, latest_date_value
+# Graphics Callback: Generates continuous 30-Year stepped term curves snapshots
 @app.callback(
     Output('diag-twin-canvas', 'figure'),
-    [Input('diag-ccy-dropdown', 'value'),
-     Input('diag-date-dropdown', 'value'),
-     Input('diag-tenor-dropdown', 'value')]
+    [Input('diag-ccy-dropdown', 'value'), Input('diag-date-dropdown', 'value')]
 )
-def render_term_structure_forward_steps(selected_ccy, selected_date, forward_tenor):
+def render_term_structure_forward_steps(selected_ccy, selected_date):
     if not selected_date:
         return go.Figure()
         
-    x_starts, x_ends, y_rates = extract_forward_curve_snapshot(master_df, selected_ccy, selected_date, forward_tenor)
+    # Extract the dual-regime mapping coordinates from the Layer 2 engine
+    x_starts, x_ends, y_rates = extract_forward_curve_snapshot(master_df, selected_ccy, selected_date)
+    
     fig = go.Figure()
     
+    # Restructure elements into continuous single trace vectors
+    x_timeline = []
+    y_stepped_rates = []
     for i in range(len(y_rates)):
-        # Institutional horizontal block step shape mapping track
-        fig.add_trace(go.Scatter(
-            x=[x_starts[i], x_ends[i]], y=[y_rates[i], y_rates[i]],
-            mode='lines+markers', name=f'{x_starts[i]}Y Forward',
-            line=dict(color='#ffc107', width=3.5),
-            marker=dict(size=7, symbol='square', color='#ffc107'),
-            hovertemplate=f"Contract: {x_starts[i]}Y -> {x_ends[i]}Y<br>Yield: %{{y}}%<extra></extra>"
-        ))
-        if i < len(y_rates) - 1:
-            fig.add_trace(go.Scatter(
-                x=[x_ends[i], x_starts[i+1]], y=[y_rates[i], y_rates[i+1]],
-                mode='lines', line=dict(color='#454d55', width=1.5, dash='dash'), hoverinfo='skip'
-            ))
+        x_timeline.extend([x_starts[i], x_ends[i]])
+        y_stepped_rates.extend([y_rates[i], y_rates[i]])
+        
+    # Single continuous institutional trace utilizing 'hv' 90-degree step functions
+    fig.add_trace(go.Scatter(
+        x=x_timeline, y=y_stepped_rates,
+        mode='lines+markers', line_shape='hv', name='Forward Curve',
+        line=dict(color='#ffc107', width=3.5),
+        marker=dict(size=6, symbol='square', color='#ffc107'),
+        hovertemplate="Maturity Horizon: %{x}Y out<br>Forward Yield Rate: %{y}%<extra></extra>"
+    ))
 
+    # Canvas properties styling configuration array - AXIS TERMINATED LOCKED AT 30.5 YEARS
     fig.update_layout(
-        title=dict(text=f"Implied Forward Curve Term Snapshot ({selected_ccy} | {int(forward_tenor)}Y Forwards | {selected_date})", font=dict(color='#ffc107', size=16)),
+        title=dict(text=f"Institutional Forward Curve Term Structure Snapshot ({selected_ccy} | Dual Horizon | {selected_date})", font=dict(color='#ffc107', size=15)),
         template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False,
         margin=dict(l=55, r=40, t=65, b=55),
-        xaxis=dict(title="Maturity Horizon Timeline (Years out from Today)", gridcolor='#2d2d2d', tickmode='linear', dtick=1.0, range=[0, max(x_ends) + 0.5] if x_ends else [0, 11]),
-        yaxis=dict(title="Forward Yield Rate (%)", gridcolor='#2d2d2d')
+        xaxis=dict(
+            title="Maturity Curve Horizon Timeline (Years out from Present Day)", 
+            gridcolor='#2d2d2d', tickmode='linear', dtick=2.0,
+            range=[0, 31.0] # HARD LOCKED: Frames the curve horizon out past 30 Years beautifully
+        ),
+        yaxis=dict(title="Forward Implied Interest Yield Rate (%)", gridcolor='#2d2d2d')
     )
     return fig
-
-# Strategy Sweep Callback: Invokes linear model regressions and draws the alpha table grid
+# RV Scanner Calculation Callback: Drives the cross-sectional linear regressions datagrid layout
 @app.callback(
     [Output('scan-anomaly-canvas', 'figure'), Output('scan-table-container', 'children')],
     [Input('run-scan-btn', 'n_clicks'), Input('scan-ccy-dropdown', 'value')]
@@ -178,7 +184,7 @@ def execute_interface_butterfly_sweep(n_clicks, selected_ccy):
     f_matrix = build_forward_permutation_matrix(dates, master_df, selected_ccy=selected_ccy, forward_tenor=1.0)
     rank_df, series_storage = run_systematic_butterfly_scan(f_matrix)
     if rank_df.empty: 
-        return go.Figure(), html.Div("Empty DataFrame")
+        return go.Figure(), html.Div("Empty DataFrame structural parsing exception state.")
     
     best_fly = rank_df.iloc[0]['Structure']
     best_series = series_storage[best_fly]
@@ -188,6 +194,7 @@ def execute_interface_butterfly_sweep(n_clicks, selected_ccy):
     fig.add_trace(go.Histogram(x=best_series.values * 10000, nbinsx=10, marker_color='#0d6efd'), row=1, col=2)
     fig.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
     
+    # Formulate high-density front office searchable datagrid layout matrix table
     table = dash_table.DataTable(
         data=rank_df.to_dict('records'), columns=[{"name": i, "id": i} for i in rank_df.columns], 
         sort_action="native", page_size=10, style_table={'overflowX': 'auto'}, 
@@ -200,8 +207,48 @@ def execute_interface_butterfly_sweep(n_clicks, selected_ccy):
     )
     return fig, table
 
-# ==========================================
-# 5. APPLICATION THREAD EXECUTION ENTRY
-# ==========================================
+# Heatmap Callback: Generates the 2D visual block matrix surface for the selected curve date state
+@app.callback(
+    Output('diag-matrix-heatmap', 'figure'),
+    [Input('diag-ccy-dropdown', 'value'), Input('diag-date-dropdown', 'value')]
+)
+def render_forward_block_matrix_heatmap(selected_ccy, selected_date):
+    if not selected_date:
+        return go.Figure()
+        
+    from curves import BootstrappedDiscountCurve
+    from analytics import generate_forward_block_matrix
+    
+    # Isolate the chosen date and currency row array slices
+    ccy_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date'] == selected_date)].copy()
+    spot_rates_dict = ccy_df.set_index('tenor')['rate'].to_dict()
+    
+    # Instantiate Layer 1 Curve engine to calculate current structural matrix
+    curve_obj = BootstrappedDiscountCurve(target_date=selected_date, spot_rates_dict=spot_rates_dict)
+    grid_df = generate_forward_block_matrix(curve_obj)
+    
+    # Generate Plotly heat mapping grid container
+    fig = go.Figure(data=go.Heatmap(
+        z=grid_df.values,
+        x=grid_df.columns,
+        y=grid_df.index,
+        colorscale='Cividis',
+        text=grid_df.values,
+        texttemplate="%{text}%",
+        textfont={"size": 11, "color": "white"},
+        hovertemplate="Start Node: %{y}<br>Forward Length: %{x}<br>Yield Rate: %{z}%<extra></extra>"
+    ))
+    
+    fig.update_layout(
+        template='plotly_dark',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=55, r=40, t=10, b=40),
+        xaxis=dict(title="Forward Contract Horizon Length (Tenor m)"),
+        yaxis=dict(title="Forward Start Delay Node (Expiry n)")
+    )
+    return fig
+
+# Main system application runtime process start checkpoint hook
 if __name__ == '__main__':
     app.run(debug=True)
