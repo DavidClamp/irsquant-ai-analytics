@@ -249,22 +249,47 @@ def execute_interface_regression_sweep(n_clicks, selected_ccy, selected_scan_typ
     # Generate the twin subplots: Time-Series Residuals (Left) + Distribution Histogram (Right)
     fig = make_subplots(rows=1, cols=2, column_widths=[0.6, 0.4])
     
+    # UPGRADED: Single continuous institutional trace utilizing 'hv' 90-degree step functions
     fig.add_trace(go.Scatter(
         x=best_series.index, y=best_series.values * 10000, 
         mode='lines+markers', line_shape='hv', 
-        line=dict(color='#ffc107', width=1.5), name='Residual'
+        line=dict(color='#ffc107', width=2.0),
+        marker=dict(size=5, symbol='square', color='#ffc107'),
+        name='Residual (bps)',
+        hovertemplate="Date: %{x}<br>Residual Dislocation: %{y:.2f} bps<extra></extra>"
     ), row=1, col=1)
     
+    # Distribution Histogram Configuration (Right Window)
     fig.add_trace(go.Histogram(
         x=best_series.values * 10000, nbinsx=10, 
         marker_color='#0d6efd', name='Frequency'
     ), row=1, col=2)
+    
+    # Dynamic Calculation of the +/- 2.00 Z-Score boundaries in basis points for the visual anchor lines
+    std_dev_bps = best_series.std() * 10000
+    mean_bps = best_series.mean() * 10000
+    upper_tail = mean_bps + (2.00 * std_dev_bps)
+    lower_tail = mean_bps - (2.00 * std_dev_bps)
+    
+    # Add explicit Upper Tail Risk Threshold Boundary Line
+    fig.add_shape(
+        type="line", x0=best_series.index[0], x1=best_series.index[-1], y0=upper_tail, y1=upper_tail,
+        line=dict(color="#dc3545", width=1.5, dash="dash"), row=1, col=1
+    )
+    # Add explicit Lower Tail Risk Threshold Boundary Line
+    fig.add_shape(
+        type="line", x0=best_series.index[0], x1=best_series.index[-1], y0=lower_tail, y1=lower_tail,
+        line=dict(color="#dc3545", width=1.5, dash="dash"), row=1, col=1
+    )
     
     fig.update_layout(
         title=dict(text=f"Active Residual Vector Tracking Matrix: {best_structure_name} (bps)", font=dict(color='#ffc107', size=13)),
         template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False,
         margin=dict(l=40, r=20, t=40, b=40)
     )
+    
+    fig.update_yaxes(title="Residual Dislocation (bps)", gridcolor='#2d2d2d', row=1, col=1)
+    fig.update_xaxes(title="Historical Timeline Axis", gridcolor='#2d2d2d', row=1, col=1)
     
     # Formulate high-density front office searchable datagrid layout matrix table
     table = dash_table.DataTable(
@@ -281,6 +306,7 @@ def execute_interface_regression_sweep(n_clicks, selected_ccy, selected_scan_typ
         }]
     )
     return fig, table
+
 
 # Main system application runtime process start checkpoint hook
 if __name__ == '__main__':
