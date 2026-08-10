@@ -48,12 +48,17 @@ navbar = dbc.NavbarSimple(
     className="border-bottom border-secondary mb-4 px-4"
 )
 
-# Global Application Grid Container
-app.layout = html.Div([
-    dcc.Location(id='url', refresh=False),
-    navbar,
-    dbc.Container(id='page-content', fluid=True)
-])
+## app.py - DYNAMIC ROOT ROUTING INFRASTRUCTURE
+def serve_layout():
+    return html.Div([
+        dcc.Location(id='url', refresh=False),
+        navbar,
+        dbc.Container(id='page-content', fluid=True)
+    ])
+
+app.layout = serve_layout 
+# Force validation across independent runtime views
+app.config.suppress_callback_exceptions = True
 #  Blueprint: Term Horizon Snapshot Terminal (Upgraded to 30Y Dynamic View)
 layout_diagnostics = html.Div([
     dbc.Row([
@@ -135,28 +140,57 @@ def display_page(pathname):
         return layout_scanner
     return layout_diagnostics  # Default fallback routes index directly to Page 1 snapshot terminal
 
-# app.py - PART 6 HEATMAP CALLBACK ENHANCEMENT
+# app.py - UNIFIED MULTI-PAGE LAYOUT DATA FLOW HOTFIX 6
+
+@app.callback(
+    [Output('diag-date-dropdown', 'options'), Output('diag-date-dropdown', 'value')],
+    Input('diag-ccy-dropdown', 'value')
+)
+def auto_populate_and_default_to_latest_date(selected_ccy):
+    if master_df.empty or not selected_ccy:
+        return [], None
+        
+    # Isolate and coerce dates strictly to string objects to prevent layout serialization hangs
+    ccy_df = master_df[master_df['currency'] == selected_ccy].copy()
+    ccy_df['date_str'] = ccy_df['date'].dt.strftime('%Y-%m-%d')
+    unique_dates = sorted(ccy_df['date_str'].unique())
+    
+    if not unique_dates:
+        return [], None
+        
+    date_options = [{'label': d, 'value': d} for d in unique_dates]
+    latest_date_value = unique_dates[-1] # Grabs the absolute newest date string automatically
+    
+    return date_options, latest_date_value
+
+
+# Consolidated Page 1 Heatmap Render Core with strict String Formatting Gates
 @app.callback(
     Output('diag-matrix-heatmap', 'figure'),
     [Input('diag-ccy-dropdown', 'value'), Input('diag-date-dropdown', 'value')]
 )
 def render_forward_block_matrix_heatmap(selected_ccy, selected_date):
-    if not selected_date:
+    # Guard against startup initialization states while dropdown mounts
+    if not selected_date or selected_date == "Loading latest date matrix...":
         return go.Figure()
         
     from curves import BootstrappedDiscountCurve
     
-    # 1. Isolate the chosen date and currency row array slices
-    ccy_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date'] == selected_date)].copy()
+    # Standardise filtering queries by coercing dataframe columns to matching string formats
+    temp_df = master_df[master_df['currency'] == selected_ccy].copy()
+    temp_df['date_str'] = temp_df['date'].dt.strftime('%Y-%m-%d')
+    
+    ccy_df = temp_df[temp_df['date_str'] == str(selected_date)].copy()
+    if ccy_df.empty:
+        return go.Figure()
+        
     spot_rates_dict = ccy_df.set_index('tenor')['rate'].to_dict()
     
-    # 2. Instantiate Layer 1 Curve engine to build the curve object
-    curve_obj = BootstrappedDiscountCurve(target_date=selected_date, spot_rates_dict=spot_rates_dict)
-    
-    # ACTIVATION: Call your imported purple function to generate the grid data frame matrix
+    # Instantiate Layer 1 Curve engine safely with type-validated string entries
+    curve_obj = BootstrappedDiscountCurve(target_date=str(selected_date), spot_rates_dict=spot_rates_dict)
     grid_df = generate_forward_block_matrix(curve_obj)
     
-    # 3. Generate Plotly heat mapping grid container
+    # Generate Plotly heat mapping grid container
     fig = go.Figure(data=go.Heatmap(
         z=grid_df.values,
         x=grid_df.columns,
@@ -177,7 +211,6 @@ def render_forward_block_matrix_heatmap(selected_ccy, selected_date):
         yaxis=dict(title="Forward Start Delay Node (Expiry n)")
     )
     return fig
-
 
 # app.py - PART 7: CONSOLIDATED CHANNELS CALLBACK
 @app.callback(
