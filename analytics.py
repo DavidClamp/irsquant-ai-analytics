@@ -27,7 +27,7 @@ def extract_forward_curve_snapshot(master_df, selected_ccy, target_date_str, vie
     """
     from curves import BootstrappedDiscountCurve
     
-    day_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date'] == target_date_str)].copy()
+    day_df = master_df Master_df[(master_df['currency'] == selected_ccy) & (master_df['date'] == target_date_str)].copy()
     if day_df.empty:
         return [], [], []
         
@@ -36,7 +36,7 @@ def extract_forward_curve_snapshot(master_df, selected_ccy, target_date_str, vie
     
     # Chronological start nodes across your full 15-tenor layout
     short_nodes = [0.25, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0] # Track 1Y Forwards
-    long_nodes = [10.0, 12.0, 15.0, 20.0, 25.0]                       # Track 5Y Forwards
+    long_nodes = [10.0, 12.0, 15.0, 20.0, 25.0] # Track 5Y Forwards
     
     x_starts, x_ends, y_rates = [], [], []
     
@@ -83,7 +83,7 @@ def build_forward_permutation_matrix(dates_index, master_df, selected_ccy, forwa
 
 def run_systematic_butterfly_scan(f_matrix_df):
     """
-    Layer 2 Strategy Scanner: Runs zero-constant linear regressions.
+    Layer 2 Strategy Scanner: Runs zero-constant linear regressions for 3-node loops.
     """
     all_legs = list(f_matrix_df.columns)
     scan_results = []
@@ -123,6 +123,50 @@ def run_systematic_butterfly_scan(f_matrix_df):
         rank_df = rank_df.sort_values(by='Z-Score (Outlier)', key=abs, ascending=False)
     return rank_df, series_storage
 
+def run_systematic_condor_scan(f_matrix_df):
+    """
+    Layer 2 Strategy Scanner: Runs 4-node regressions tracking micro slope twists.
+    Implements institutional risk neutralisation framework: Up-Down-Down-Up layout.
+    Formula: y_slope (Leg3 - Leg2) vs X_wings (Leg1, Leg4)
+    """
+    all_legs = list(f_matrix_df.columns)
+    scan_results = []
+    series_storage = {}
+    
+    if len(all_legs) < 4:
+        return pd.DataFrame(), {}
+        
+    combinations = list(itertools.combinations(all_legs, 4))
+    
+    for leg1, leg2, leg3, leg4 in combinations:
+        # Define internal slope (y) vs external wing stabilization bounds (X)
+        y = (f_matrix_df[leg3] - f_matrix_df[leg2]).values
+        X = f_matrix_df[[leg1, leg4]].values
+        
+        model = LinearRegression(fit_intercept=False)
+        model.fit(X, y)
+        coefs = np.atleast_1d(model.coef_)
+        
+        residuals = y - model.predict(X)
+        current_residual = residuals[-1]
+        z_score = (current_residual - residuals.mean()) / residuals.std()
+        
+        struct_name = f"CONDOR: [{leg2} & {leg3}] vs Wings [{leg1} & {leg4}]"
+        series_storage[struct_name] = pd.Series(residuals, index=f_matrix_df.index)
+        
+        scan_results.append({
+            'Structure': struct_name,
+            'Hedge Ratio (Short)': round(coefs[0], 2) if len(coefs) > 0 else 0.0,
+            'Hedge Ratio (Long)': round(coefs[1], 2) if len(coefs) > 1 else 0.0,
+            'R-Squared': round(model.score(X, y), 4),
+            'Current Residual (bps)': round(current_residual * 10000, 2),
+            'Z-Score (Outlier)': round(z_score, 2)
+        })
+        
+    rank_df = pd.DataFrame(scan_results)
+    if not rank_df.empty:
+        rank_df = rank_df.sort_values(by='Z-Score (Outlier)', key=abs, ascending=False)
+    return rank_df, series_storage
 
 def generate_forward_block_matrix(curve_obj):
     """
@@ -131,7 +175,6 @@ def generate_forward_block_matrix(curve_obj):
     vs all available forward contract lengths (m) for the current active date.
     Corrected to bypass dictionary inversion lookup errors.
     """
-    # Map out string representations directly to year fractions for safe array math
     start_lookup = {
         '3M': 0.25, '1Y': 1.0, '2Y': 2.0, '3Y': 3.0, '4Y': 4.0, 
         '5Y': 5.0, '7Y': 7.0, '10Y': 10.0, '15Y': 15.0, '20Y': 20.0, '25Y': 25.0
@@ -148,13 +191,12 @@ def generate_forward_block_matrix(curve_obj):
             start_n = start_lookup[n_str]
             tenor_m = length_lookup[m_str]
             
-            # Boundary guard rail: Stop calculating if contract extends past the 30Y tail anchor
             if (start_n + tenor_m) > 30.0:
                 grid_df.loc[n_str, m_str] = 0.0
                 continue
                 
             fwd_rate = extract_implied_forward_swap(curve_obj, start_n=start_n, tenor_m=tenor_m)
             if fwd_rate > 0.0:
-                grid_df.loc[n_str, m_str] = round(fwd_rate * 100, 3) # Express in clear percentage points
+                grid_df.loc[n_str, m_str] = round(fwd_rate * 100, 3)
                 
     return grid_df.fillna(0.0)
