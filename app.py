@@ -13,7 +13,7 @@ from plotly.subplots import make_subplots
 # Clean institutional imports from your Layer 2 analytics engine
 from analytics import (
     build_forward_permutation_matrix,
-    run_systematic_butterfly_scan, 
+    run_systematic_butterfly_scan,
     run_systematic_condor_scan,
     extract_forward_curve_snapshot,
     generate_forward_block_matrix
@@ -135,121 +135,78 @@ def display_page(pathname):
         return layout_scanner
     return layout_diagnostics  # Default fallback routes index directly to Page 1 snapshot terminal
 
-# Date Sync Callback: Auto-populates parameters and updates selection filter directly to the LATEST day
+# app.py - PART 6 HEATMAP CALLBACK ENHANCEMENT
 @app.callback(
-    [Output('diag-date-dropdown', 'options'), Output('diag-date-dropdown', 'value')],
-    Input('diag-ccy-dropdown', 'value')
-)
-def auto_populate_and_default_to_latest_date(selected_ccy):
-    ccy_df = master_df[master_df['currency'] == selected_ccy].copy()
-    unique_dates = sorted(ccy_df['date'].unique())
-    if not unique_dates:
-        return [], None
-        
-    date_options = [{'label': pd.to_datetime(d).strftime('%Y-%m-%d'), 'value': pd.to_datetime(d).strftime('%Y-%m-%d')} for d in unique_dates]
-    latest_date_value = pd.to_datetime(unique_dates[-1]).strftime('%Y-%m-%d')
-    return date_options, latest_date_value
-# Graphics Callback: Generates continuous 30-Year stepped term curves snapshots
-@app.callback(
-    Output('diag-twin-canvas', 'figure'),
+    Output('diag-matrix-heatmap', 'figure'),
     [Input('diag-ccy-dropdown', 'value'), Input('diag-date-dropdown', 'value')]
 )
-def render_term_structure_forward_steps(selected_ccy, selected_date):
+def render_forward_block_matrix_heatmap(selected_ccy, selected_date):
     if not selected_date:
         return go.Figure()
         
-    # Extract the dual-regime mapping coordinates from the Layer 2 engine
-    x_starts, x_ends, y_rates = extract_forward_curve_snapshot(master_df, selected_ccy, selected_date)
+    from curves import BootstrappedDiscountCurve
     
-    fig = go.Figure()
+    # 1. Isolate the chosen date and currency row array slices
+    ccy_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date'] == selected_date)].copy()
+    spot_rates_dict = ccy_df.set_index('tenor')['rate'].to_dict()
     
-    # Restructure elements into continuous single trace vectors
-    x_timeline = []
-    y_stepped_rates = []
-    for i in range(len(y_rates)):
-        x_timeline.extend([x_starts[i], x_ends[i]])
-        y_stepped_rates.extend([y_rates[i], y_rates[i]])
-        
-    # Single continuous institutional trace utilizing 'hv' 90-degree step functions
-    fig.add_trace(go.Scatter(
-        x=x_timeline, y=y_stepped_rates,
-        mode='lines+markers', line_shape='hv', name='Forward Curve',
-        line=dict(color='#ffc107', width=3.5),
-        marker=dict(size=6, symbol='square', color='#ffc107'),
-        hovertemplate="Maturity Horizon: %{x}Y out<br>Forward Yield Rate: %{y}%<extra></extra>"
+    # 2. Instantiate Layer 1 Curve engine to build the curve object
+    curve_obj = BootstrappedDiscountCurve(target_date=selected_date, spot_rates_dict=spot_rates_dict)
+    
+    # ACTIVATION: Call your imported purple function to generate the grid data frame matrix
+    grid_df = generate_forward_block_matrix(curve_obj)
+    
+    # 3. Generate Plotly heat mapping grid container
+    fig = go.Figure(data=go.Heatmap(
+        z=grid_df.values,
+        x=grid_df.columns,
+        y=grid_df.index,
+        colorscale='Cividis',
+        text=grid_df.values,
+        texttemplate="%{text}%",
+        textfont={"size": 11, "color": "white"},
+        hovertemplate="Start Node: %{y}<br>Forward Length: %{x}<br>Yield Rate: %{z}%<extra></extra>"
     ))
-
-    # Canvas properties styling configuration array - AXIS TERMINATED LOCKED AT 30.5 YEARS
+    
     fig.update_layout(
-        title=dict(text=f"Institutional Forward Curve Term Structure Snapshot ({selected_ccy} | Dual Horizon | {selected_date})", font=dict(color='#ffc107', size=15)),
-        template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False,
-        margin=dict(l=55, r=40, t=65, b=55),
-        xaxis=dict(
-            title="Maturity Curve Horizon Timeline (Years out from Present Day)", 
-            gridcolor='#2d2d2d', tickmode='linear', dtick=2.0,
-            range=[0, 31.0] # HARD LOCKED: Frames the curve horizon out past 30 Years beautifully
-        ),
-        yaxis=dict(title="Forward Implied Interest Yield Rate (%)", gridcolor='#2d2d2d')
+        template='plotly_dark',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=55, r=40, t=10, b=40),
+        xaxis=dict(title="Forward Contract Horizon Length (Tenor m)"),
+        yaxis=dict(title="Forward Start Delay Node (Expiry n)")
     )
     return fig
-# RV Scanner Calculation Callback: Drives the cross-sectional linear regressions datagrid layout
-@app.callback(
-    [Output('scan-anomaly-canvas', 'figure'), Output('scan-table-container', 'children')],
-    [Input('run-scan-btn', 'n_clicks'), Input('scan-ccy-dropdown', 'value')]
-)
-def execute_interface_butterfly_sweep(n_clicks, selected_ccy):
-    f_matrix = build_forward_permutation_matrix(dates, master_df, selected_ccy=selected_ccy, forward_tenor=1.0)
-    rank_df, series_storage = run_systematic_butterfly_scan(f_matrix)
-    if rank_df.empty: 
-        return go.Figure(), html.Div("Empty DataFrame structural parsing exception state.")
-    
-    best_fly = rank_df.iloc[0]['Structure']
-    best_series = series_storage[best_fly]
-    
-    fig = make_subplots(rows=1, cols=2, column_widths=[0.6, 0.4])
-    fig.add_trace(go.Scatter(x=best_series.index, y=best_series.values * 10000, mode='lines+markers', line_shape='hv', line=dict(color='#ffc107', width=1.5)), row=1, col=1)
-    fig.add_trace(go.Histogram(x=best_series.values * 10000, nbinsx=10, marker_color='#0d6efd'), row=1, col=2)
-    fig.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
-    
-    # Formulate high-density front office searchable datagrid layout matrix table
-    table = dash_table.DataTable(
-        data=rank_df.to_dict('records'), columns=[{"name": i, "id": i} for i in rank_df.columns], 
-        sort_action="native", page_size=10, style_table={'overflowX': 'auto'}, 
-        style_header={'backgroundColor': '#212529', 'color': '#ffc107', 'fontWeight': 'bold'}, 
-        style_cell={'backgroundColor': '#1a1a1a', 'color': '#f8f9fa', 'textAlign': 'center', 'fontSize': '12px'},
-        style_data_conditional=[{
-            'if': {'filter_query': '{Z-Score (Outlier)} > 2.00 || {Z-Score (Outlier)} < -2.00'},
-            'backgroundColor': '#3a2512', 'color': '#ffc107'
-        }]
-    )
-    return fig, table
 
-# RV Scanner Calculation Callback: Drives the cross-sectional linear regressions datagrid layout
+
+# app.py - PART 7: CONSOLIDATED CHANNELS CALLBACK
 @app.callback(
     [Output('scan-anomaly-canvas', 'figure'), Output('scan-table-container', 'children')],
     [Input('run-scan-btn', 'n_clicks'), Input('scan-ccy-dropdown', 'value'), Input('scan-type-toggle', 'value')]
 )
-def execute_interface_regression_sweep(n_clicks, selected_ccy, selected_scan_type):
+# CONSOLIDATED SCANNER CALLBACK CORRECTION
+def execute_interface_regression_sweep(_, selected_ccy, selected_scan_type):
     # 1. Build the baseline forward contract data matrix
-    f_matrix = build_forward_permutation_matrix(dates, master_df, selected_ccy=selected_ccy, forward_tenor=1.0)
+    # CLEANED ACCURATELY TO MATCH YOUR OPTIMISED LAYER 2 SIGNATURE
+    f_matrix = build_forward_permutation_matrix(master_df, selected_ccy=selected_ccy)
     
-    # 2. Dynamic Routing: Route the matrix to the chosen strategy solver algorithm
+    # 2. Dynamic Routing: Execute the specific mathematical model chosen by the user sidebar toggle
     if selected_scan_type == 'CONDOR':
         rank_df, series_storage = run_systematic_condor_scan(f_matrix)
     else:
         rank_df, series_storage = run_systematic_butterfly_scan(f_matrix)
         
+    # Extract the highest-ranking statistical outlier from the sorted dataframe matrix
     if rank_df.empty: 
         return go.Figure(), html.Div("Empty DataFrame structural parsing exception state.", className="text-danger p-3")
     
-    # Extract the highest-ranking statistical anomaly from the sorted data frame
-    best_structure_name = rank_df.iloc[0]['Structure']
+    # PERFECT LOOKUP: Extract the top sorted string element cleanly using absolute index position
+    best_structure_name = rank_df.loc[rank_df.index[0], 'Structure']
     best_series = series_storage[best_structure_name]
-    
-    # Generate the twin subplots: Time-Series Residuals (Left) + Distribution Histogram (Right)
+
+    # Generate the twin subplots: Time-Series Residual Steps (Left) + Frequency Distribution Histogram (Right)
     fig = make_subplots(rows=1, cols=2, column_widths=[0.6, 0.4])
     
-    # UPGRADED: Single continuous institutional trace utilizing 'hv' 90-degree step functions
     fig.add_trace(go.Scatter(
         x=best_series.index, y=best_series.values * 10000, 
         mode='lines+markers', line_shape='hv', 
@@ -259,33 +216,24 @@ def execute_interface_regression_sweep(n_clicks, selected_ccy, selected_scan_typ
         hovertemplate="Date: %{x}<br>Residual Dislocation: %{y:.2f} bps<extra></extra>"
     ), row=1, col=1)
     
-    # Distribution Histogram Configuration (Right Window)
     fig.add_trace(go.Histogram(
         x=best_series.values * 10000, nbinsx=10, 
         marker_color='#0d6efd', name='Frequency'
     ), row=1, col=2)
     
-    # Dynamic Calculation of the +/- 2.00 Z-Score boundaries in basis points for the visual anchor lines
+    # Dynamic calculation of the +/- 2.00 Z-Score boundaries in basis points for the visual anchor lines
     std_dev_bps = best_series.std() * 10000
     mean_bps = best_series.mean() * 10000
     upper_tail = mean_bps + (2.00 * std_dev_bps)
     lower_tail = mean_bps - (2.00 * std_dev_bps)
     
-    # Add explicit Upper Tail Risk Threshold Boundary Line
-    fig.add_shape(
-        type="line", x0=best_series.index[0], x1=best_series.index[-1], y0=upper_tail, y1=upper_tail,
-        line=dict(color="#dc3545", width=1.5, dash="dash"), row=1, col=1
-    )
-    # Add explicit Lower Tail Risk Threshold Boundary Line
-    fig.add_shape(
-        type="line", x0=best_series.index[0], x1=best_series.index[-1], y0=lower_tail, y1=lower_tail,
-        line=dict(color="#dc3545", width=1.5, dash="dash"), row=1, col=1
-    )
+    # Add Upper and Lower Tail Risk Threshold Boundary Lines
+    fig.add_shape(type="line", x0=best_series.index[0], x1=best_series.index[-1], y0=upper_tail, y1=upper_tail, line=dict(color="#dc3545", width=1.5, dash="dash"), row=1, col=1)
+    fig.add_shape(type="line", x0=best_series.index[0], x1=best_series.index[-1], y0=lower_tail, y1=lower_tail, line=dict(color="#dc3545", width=1.5, dash="dash"), row=1, col=1)
     
     fig.update_layout(
-        title=dict(text=f"Active Residual Vector Tracking Matrix: {best_structure_name} (bps)", font=dict(color='#ffc107', size=13)),
         template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False,
-        margin=dict(l=40, r=20, t=40, b=40)
+        margin=dict(l=40, r=20, t=20, b=40)
     )
     
     fig.update_yaxes(title="Residual Dislocation (bps)", gridcolor='#2d2d2d', row=1, col=1)
@@ -306,7 +254,6 @@ def execute_interface_regression_sweep(n_clicks, selected_ccy, selected_scan_typ
         }]
     )
     return fig, table
-
 
 # Main system application runtime process start checkpoint hook
 if __name__ == '__main__':

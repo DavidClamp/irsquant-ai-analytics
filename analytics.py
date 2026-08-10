@@ -17,7 +17,7 @@ def extract_implied_forward_swap(curve_obj, start_n, tenor_m):
         return 0.0
     return (p_start - p_end) / annuity
 
-def extract_forward_curve_snapshot(master_df, selected_ccy, target_date_str, view_mode="Dynamic"):
+def extract_forward_curve_snapshot(master_df, selected_ccy, target_date_str,):
     """
     Term Structure Snapshot Engine: Maps your complete curve out to 30 Years.
     Natively executes your dual-regime macro trade horizon logic:
@@ -27,7 +27,8 @@ def extract_forward_curve_snapshot(master_df, selected_ccy, target_date_str, vie
     """
     from curves import BootstrappedDiscountCurve
     
-    day_df = master_df Master_df[(master_df['currency'] == selected_ccy) & (master_df['date'] == target_date_str)].copy()
+    day_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date'] == target_date_str)].copy()
+    
     if day_df.empty:
         return [], [], []
         
@@ -56,7 +57,7 @@ def extract_forward_curve_snapshot(master_df, selected_ccy, target_date_str, vie
         
     return x_starts, x_ends, y_rates
 
-def build_forward_permutation_matrix(dates_index, master_df, selected_ccy, forward_tenor=1.0):
+def build_forward_permutation_matrix(master_df, selected_ccy):
     """
     Generates historical time-series matrices of forwards for regression scanning.
     """
