@@ -163,54 +163,55 @@ def auto_populate_and_default_to_latest_date(selected_ccy):
     
     return date_options, latest_date_value
 
-
-# Consolidated Page 1 Heatmap Render Core with strict String Formatting Gates
+# Consolidated Page 1 Step-Snapshot Curve Renderer Core with String Formatting Gates
 @app.callback(
-    Output('diag-matrix-heatmap', 'figure'),
+    Output('diag-twin-canvas', 'figure'),
     [Input('diag-ccy-dropdown', 'value'), Input('diag-date-dropdown', 'value')]
 )
-def render_forward_block_matrix_heatmap(selected_ccy, selected_date):
+def render_term_structure_forward_steps(selected_ccy, selected_date):
     # Guard against startup initialization states while dropdown mounts
     if not selected_date or selected_date == "Loading latest date matrix...":
         return go.Figure()
         
-    from curves import BootstrappedDiscountCurve
+    # ACTIVATION: Call your imported purple function to pull the dual-regime coordinates
+    # Cleaned of the dead view_mode parameter to match your optimized analytics layer perfectly
+    x_starts, x_ends, y_rates = extract_forward_curve_snapshot(master_df, selected_ccy, str(selected_date))
     
-    # Standardise filtering queries by coercing dataframe columns to matching string formats
-    temp_df = master_df[master_df['currency'] == selected_ccy].copy()
-    temp_df['date_str'] = temp_df['date'].dt.strftime('%Y-%m-%d')
-    
-    ccy_df = temp_df[temp_df['date_str'] == str(selected_date)].copy()
-    if ccy_df.empty:
+    if not y_rates:
         return go.Figure()
         
-    spot_rates_dict = ccy_df.set_index('tenor')['rate'].to_dict()
+    fig = go.Figure()
     
-    # Instantiate Layer 1 Curve engine safely with type-validated string entries
-    curve_obj = BootstrappedDiscountCurve(target_date=str(selected_date), spot_rates_dict=spot_rates_dict)
-    grid_df = generate_forward_block_matrix(curve_obj)
-    
-    # Generate Plotly heat mapping grid container
-    fig = go.Figure(data=go.Heatmap(
-        z=grid_df.values,
-        x=grid_df.columns,
-        y=grid_df.index,
-        colorscale='Cividis',
-        text=grid_df.values,
-        texttemplate="%{text}%",
-        textfont={"size": 11, "color": "white"},
-        hovertemplate="Start Node: %{y}<br>Forward Length: %{x}<br>Yield Rate: %{z}%<extra></extra>"
+    # Restructure elements into continuous single trace vectors
+    x_timeline = []
+    y_stepped_rates = []
+    for i in range(len(y_rates)):
+        x_timeline.extend([x_starts[i], x_ends[i]])
+        y_stepped_rates.extend([y_rates[i], y_rates[i]])
+        
+    # Single continuous institutional trace utilizing 'hv' 90-degree step functions
+    fig.add_trace(go.Scatter(
+        x=x_timeline, y=y_stepped_rates,
+        mode='lines+markers', line_shape='hv', name='Forward Curve',
+        line=dict(color='#ffc107', width=3.5),
+        marker=dict(size=6, symbol='square', color='#ffc107'),
+        hovertemplate="Maturity Horizon: %{x}Y out<br>Forward Yield Rate: %{y:.2f}%<extra></extra>"
     ))
-    
+
+    # Canvas properties styling configuration array - AXIS TERMINATED LOCKED AT 31.0 YEARS
     fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=55, r=40, t=10, b=40),
-        xaxis=dict(title="Forward Contract Horizon Length (Tenor m)"),
-        yaxis=dict(title="Forward Start Delay Node (Expiry n)")
+        title=dict(text=f"Institutional Forward Curve Term Structure Snapshot ({selected_ccy} | Dual Horizon | {selected_date})", font=dict(color='#ffc107', size=14)),
+        template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False,
+        margin=dict(l=55, r=40, t=65, b=55),
+        xaxis=dict(
+            title="Maturity Curve Horizon Timeline (Years out from Present Day)", 
+            gridcolor='#2d2d2d', tickmode='linear', dtick=2.0,
+            range=[0, 31.0] # HARD LOCKED: Frames the curve horizon out past 30 Years beautifully
+        ),
+        yaxis=dict(title="Forward Implied Interest Yield Rate (%)", gridcolor='#2d2d2d')
     )
     return fig
+
 
 # app.py - PART 7: CONSOLIDATED CHANNELS CALLBACK
 @app.callback(
