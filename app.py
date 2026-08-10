@@ -12,8 +12,9 @@ from plotly.subplots import make_subplots
 
 # Clean institutional imports from your Layer 2 analytics engine
 from analytics import (
-    build_forward_permutation_matrix, 
+    build_forward_permutation_matrix,
     run_systematic_butterfly_scan, 
+    run_systematic_condor_scan,
     extract_forward_curve_snapshot,
     generate_forward_block_matrix
 )
@@ -84,11 +85,11 @@ layout_diagnostics = html.Div([
         ], width=9)     
     ])
 ])
-# Blueprint: Cross-Sectional Alpha Arbitrage Scanner Terminal
+# Page 2 Blueprint: Cross-Sectional Alpha Arbitrage Scanner Terminal
 layout_scanner = html.Div([
     dbc.Row([
         dbc.Col([
-            html.H3("Systematic 3-Node Forward Curve Butterfly Scanner", className="text-warning fw-bold mb-2"),
+            html.H3("Systematic Multi-Node Forward Curve Arbitrage Scanner", className="text-warning fw-bold mb-2"),
             html.P("Zero-constant multivariable linear regressions monitoring systematic anomalies.", className="text-muted mb-4")
         ], width=12)
     ]),
@@ -98,8 +99,23 @@ layout_scanner = html.Div([
         dbc.Col([
             html.Div([
                 html.H5("Scan Trigger Matrix", className="text-warning mb-3"),
+                
                 html.Label("Select Target Currency Block:", className="text-light small fw-bold"),
                 dcc.Dropdown(id='scan-ccy-dropdown', options=[{'label': c, 'value': c} for c in currencies], value='USD', className="text-dark mb-4"),
+                
+                # Upgraded Feature: Structure Type Selection Toggle Matrix
+                html.Label("Select Structure Matrix Type:", className="text-light small fw-bold mb-2"),
+                dcc.RadioItems(
+                    id='scan-type-toggle',
+                    options=[
+                        {'label': ' 3-Node Butterfly Scan (Body vs Wings)', 'value': 'FLY'},
+                        {'label': ' 4-Node Condor Scan (Up-Down-Down-Up Twist)', 'value': 'CONDOR'}
+                    ],
+                    value='FLY',
+                    labelStyle={'display': 'block', 'color': '#f8f9fa', 'fontSize': '13px'},
+                    className="mb-4"
+                ),
+                
                 dbc.Button("Execute Curve Matrix Sweep", id='run-scan-btn', color="warning", className="w-100 fw-bold py-2")
             ], className="p-3 bg-dark border border-secondary rounded mb-4")
         ], width=3),
@@ -111,6 +127,7 @@ layout_scanner = html.Div([
         ], width=9)
     ])
 ])
+
 # URL Routing Callback: Controls active view container mapping
 @app.callback(Output('page-content', 'children'), Input('url', 'pathname'))
 def display_page(pathname):
@@ -207,47 +224,63 @@ def execute_interface_butterfly_sweep(n_clicks, selected_ccy):
     )
     return fig, table
 
-# Heatmap Callback: Generates the 2D visual block matrix surface for the selected curve date state
+# RV Scanner Calculation Callback: Drives the cross-sectional linear regressions datagrid layout
 @app.callback(
-    Output('diag-matrix-heatmap', 'figure'),
-    [Input('diag-ccy-dropdown', 'value'), Input('diag-date-dropdown', 'value')]
+    [Output('scan-anomaly-canvas', 'figure'), Output('scan-table-container', 'children')],
+    [Input('run-scan-btn', 'n_clicks'), Input('scan-ccy-dropdown', 'value'), Input('scan-type-toggle', 'value')]
 )
-def render_forward_block_matrix_heatmap(selected_ccy, selected_date):
-    if not selected_date:
-        return go.Figure()
+def execute_interface_regression_sweep(n_clicks, selected_ccy, selected_scan_type):
+    # 1. Build the baseline forward contract data matrix
+    f_matrix = build_forward_permutation_matrix(dates, master_df, selected_ccy=selected_ccy, forward_tenor=1.0)
+    
+    # 2. Dynamic Routing: Route the matrix to the chosen strategy solver algorithm
+    if selected_scan_type == 'CONDOR':
+        rank_df, series_storage = run_systematic_condor_scan(f_matrix)
+    else:
+        rank_df, series_storage = run_systematic_butterfly_scan(f_matrix)
         
-    from curves import BootstrappedDiscountCurve
-    from analytics import generate_forward_block_matrix
+    if rank_df.empty: 
+        return go.Figure(), html.Div("Empty DataFrame structural parsing exception state.", className="text-danger p-3")
     
-    # Isolate the chosen date and currency row array slices
-    ccy_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date'] == selected_date)].copy()
-    spot_rates_dict = ccy_df.set_index('tenor')['rate'].to_dict()
+    # Extract the highest-ranking statistical anomaly from the sorted data frame
+    best_structure_name = rank_df.iloc[0]['Structure']
+    best_series = series_storage[best_structure_name]
     
-    # Instantiate Layer 1 Curve engine to calculate current structural matrix
-    curve_obj = BootstrappedDiscountCurve(target_date=selected_date, spot_rates_dict=spot_rates_dict)
-    grid_df = generate_forward_block_matrix(curve_obj)
+    # Generate the twin subplots: Time-Series Residuals (Left) + Distribution Histogram (Right)
+    fig = make_subplots(rows=1, cols=2, column_widths=[0.6, 0.4])
     
-    # Generate Plotly heat mapping grid container
-    fig = go.Figure(data=go.Heatmap(
-        z=grid_df.values,
-        x=grid_df.columns,
-        y=grid_df.index,
-        colorscale='Cividis',
-        text=grid_df.values,
-        texttemplate="%{text}%",
-        textfont={"size": 11, "color": "white"},
-        hovertemplate="Start Node: %{y}<br>Forward Length: %{x}<br>Yield Rate: %{z}%<extra></extra>"
-    ))
+    fig.add_trace(go.Scatter(
+        x=best_series.index, y=best_series.values * 10000, 
+        mode='lines+markers', line_shape='hv', 
+        line=dict(color='#ffc107', width=1.5), name='Residual'
+    ), row=1, col=1)
+    
+    fig.add_trace(go.Histogram(
+        x=best_series.values * 10000, nbinsx=10, 
+        marker_color='#0d6efd', name='Frequency'
+    ), row=1, col=2)
     
     fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=55, r=40, t=10, b=40),
-        xaxis=dict(title="Forward Contract Horizon Length (Tenor m)"),
-        yaxis=dict(title="Forward Start Delay Node (Expiry n)")
+        title=dict(text=f"Active Residual Vector Tracking Matrix: {best_structure_name} (bps)", font=dict(color='#ffc107', size=13)),
+        template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False,
+        margin=dict(l=40, r=20, t=40, b=40)
     )
-    return fig
+    
+    # Formulate high-density front office searchable datagrid layout matrix table
+    table = dash_table.DataTable(
+        data=rank_df.to_dict('records'), 
+        columns=[{"name": i, "id": i} for i in rank_df.columns], 
+        sort_action="native", 
+        page_size=10, 
+        style_table={'overflowX': 'auto'}, 
+        style_header={'backgroundColor': '#212529', 'color': '#ffc107', 'fontWeight': 'bold'}, 
+        style_cell={'backgroundColor': '#1a1a1a', 'color': '#f8f9fa', 'textAlign': 'center', 'fontSize': '12px'},
+        style_data_conditional=[{
+            'if': {'filter_query': '{Z-Score (Outlier)} > 2.00 || {Z-Score (Outlier)} < -2.00'},
+            'backgroundColor': '#3a2512', 'color': '#ffc107'
+        }]
+    )
+    return fig, table
 
 # Main system application runtime process start checkpoint hook
 if __name__ == '__main__':
