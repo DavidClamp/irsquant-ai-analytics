@@ -4,6 +4,14 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 
+# Global institutional tenor definition map used to protect data ingestion channels
+TENOR_LABEL_MAP = {
+    0.25: '3M', 1.0: '1Y', 2.0: '2Y', 3.0: '3Y', 4.0: '4Y', 
+    5.0: '5Y',  6.0: '6Y', 7.0: '7Y', 8.0: '8Y', 9.0: '9Y', 
+    10.0: '10Y', 12.0: '12Y', 15.0: '15Y', 20.0: '20Y', 
+    25.0: '25Y', 30.0: '30Y'
+}
+
 def extract_implied_forward_swap(curve_obj, start_n, tenor_m):
     r"""
     Extracts the forward-starting swap rate from Layer 1 discount factors.
@@ -17,27 +25,27 @@ def extract_implied_forward_swap(curve_obj, start_n, tenor_m):
         return 0.0
     return (p_start - p_end) / annuity
 
-def extract_forward_curve_snapshot(master_df, selected_ccy, target_date_str,):
+def extract_forward_curve_snapshot(master_df, selected_ccy, target_date_str):
     """
     Term Structure Snapshot Engine: Maps your complete curve out to 30 Years.
-    Natively executes your dual-regime macro trade horizon logic:
-    - From 0Y to 10Y: Plots crisp 1-Year Forward contract blocks (1YF)
-    - From 10Y to 25Y: Shifts to deep 5-Year Forward contract blocks (5YF)
-    - Terminates cleanly at Year 30 (no 31Y or 32Y anchors required).
+    Natively executes your dual-regime macro trade horizon logic.
+    Type-safe: Cleaned of loop collisions and explicitly calibrated.
     """
     from curves import BootstrappedDiscountCurve
     
-    day_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date'] == target_date_str)].copy()
+    target_ts = pd.to_datetime(target_date_str)
+    day_df = master_df[(master_df['currency'] == selected_ccy) & (pd.to_datetime(master_df['date']) == target_ts)].copy()
     
     if day_df.empty:
         return [], [], []
         
-    spot_rates_dict = day_df.set_index('tenor')['rate'].to_dict()
+    raw_spots = day_df.set_index('tenor')['rate'].to_dict()
+    spot_rates_dict = {TENOR_LABEL_MAP[t]: float(r) for t, r in raw_spots.items() if t in TENOR_LABEL_MAP}
+    
     curve = BootstrappedDiscountCurve(target_date=target_date_str, spot_rates_dict=spot_rates_dict)
     
-    # Chronological start nodes across your full 15-tenor layout
     short_nodes = [0.25, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0] # Track 1Y Forwards
-    long_nodes = [10.0, 12.0, 15.0, 20.0, 25.0] # Track 5Y Forwards
+    long_nodes = [10.0, 12.0, 15.0, 20.0, 25.0]                       # Track 5Y Forwards
     
     x_starts, x_ends, y_rates = [], [], []
     
@@ -52,7 +60,7 @@ def extract_forward_curve_snapshot(master_df, selected_ccy, target_date_str,):
     for start in long_nodes:
         fwd_rate = extract_implied_forward_swap(curve, start_n=start, tenor_m=5.0)
         x_starts.append(start)
-        x_ends.append(start + 5.0) # e.g., 25Y start + 5Y length = 30Y max boundary
+        x_ends.append(start + 5.0)
         y_rates.append(fwd_rate * 100)
         
     return x_starts, x_ends, y_rates
@@ -60,21 +68,22 @@ def extract_forward_curve_snapshot(master_df, selected_ccy, target_date_str,):
 def build_forward_permutation_matrix(master_df, selected_ccy):
     """
     Generates historical time-series matrices of forwards for regression scanning.
+    Type-safe: Dynamically translates float indexes to institutional text labels.
     """
     from curves import BootstrappedDiscountCurve
     ccy_df = master_df[master_df['currency'] == selected_ccy].copy()
     pivot_df = ccy_df.pivot(index='date', columns='tenor', values='rate').dropna()
     
-    # Match the short-end tracking matrix layout
     start_nodes = [0.25, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
-    
     matrix_dict = {f"{n}F1Y": [] for n in start_nodes}
     matrix_dates = []
     
     for dt in pivot_df.index:
-        spot_rates_dict = pivot_df.loc[dt].to_dict()
-        curve = BootstrappedDiscountCurve(target_date=dt, spot_rates_dict=spot_rates_dict)
-        matrix_dates.append(dt)
+        raw_spots = pivot_df.loc[dt].to_dict()
+        spot_rates_dict = {TENOR_LABEL_MAP[t]: float(r) for t, r in raw_spots.items() if t in TENOR_LABEL_MAP}
+        
+        curve = BootstrappedDiscountCurve(target_date=str(dt), spot_rates_dict=spot_rates_dict)
+        matrix_dates.append(str(dt)[:10])
         
         for n in start_nodes:
             fwd_rate = extract_implied_forward_swap(curve, start_n=n, tenor_m=1.0)
@@ -105,7 +114,7 @@ def run_systematic_butterfly_scan(f_matrix_df):
         
         residuals = y - model.predict(X)
         current_residual = residuals[-1]
-        z_score = (current_residual - residuals.mean()) / residuals.std()
+        z_score = (current_residual - residuals.mean()) / residuals.std() if residuals.std() > 0 else 0.0
         
         struct_name = f"FLY: {mid_f} vs [{short_f} & {long_f}]"
         series_storage[struct_name] = pd.Series(residuals, index=f_matrix_df.index)
@@ -128,7 +137,6 @@ def run_systematic_condor_scan(f_matrix_df):
     """
     Layer 2 Strategy Scanner: Runs 4-node regressions tracking micro slope twists.
     Implements institutional risk neutralisation framework: Up-Down-Down-Up layout.
-    Formula: y_slope (Leg3 - Leg2) vs X_wings (Leg1, Leg4)
     """
     all_legs = list(f_matrix_df.columns)
     scan_results = []
@@ -140,7 +148,6 @@ def run_systematic_condor_scan(f_matrix_df):
     combinations = list(itertools.combinations(all_legs, 4))
     
     for leg1, leg2, leg3, leg4 in combinations:
-        # Define internal slope (y) vs external wing stabilization bounds (X)
         y = (f_matrix_df[leg3] - f_matrix_df[leg2]).values
         X = f_matrix_df[[leg1, leg4]].values
         
@@ -150,7 +157,7 @@ def run_systematic_condor_scan(f_matrix_df):
         
         residuals = y - model.predict(X)
         current_residual = residuals[-1]
-        z_score = (current_residual - residuals.mean()) / residuals.std()
+        z_score = (current_residual - residuals.mean()) / residuals.std() if residuals.std() > 0 else 0.0
         
         struct_name = f"CONDOR: [{leg2} & {leg3}] vs Wings [{leg1} & {leg4}]"
         series_storage[struct_name] = pd.Series(residuals, index=f_matrix_df.index)
@@ -174,7 +181,6 @@ def generate_forward_block_matrix(curve_obj):
     Layer 2 Matrix Block Engine:
     Generates a comprehensive 2D grid matrix of all forward start dates (n)
     vs all available forward contract lengths (m) for the current active date.
-    Corrected to bypass dictionary inversion lookup errors.
     """
     start_lookup = {
         '3M': 0.25, '1Y': 1.0, '2Y': 2.0, '3Y': 3.0, '4Y': 4.0, 

@@ -5,7 +5,7 @@ import pandas as pd
 class BootstrappedDiscountCurve:
     r"""
     Layer 1: Precision Yield Curve Construction Engine.
-    Ingests your complete 15-node G4 swap curve structure up to 30 Years.
+    Ingests your complete G10 swap curve structure up to 30 Years.
     Sequentially bootstraps discount factors P(0, T) using log-linear decay
     to map gaps cleanly across unquoted structural horizons.
     """
@@ -20,10 +20,35 @@ class BootstrappedDiscountCurve:
             25.0: '25Y', 30.0: '30Y'
         }
         self.maturities = sorted(list(self.tenor_map.keys()))
-        self.spot_rates = spot_rates_dict  # e.g., {'3M': 0.045, '30Y': 0.052}
+        self.spot_rates = spot_rates_dict  # e.g., {'3M': 4.5, '30Y': 5.2}
+        
+        # Force fill any missing intermediate tenors to protect bootstrap logic
+        self._linear_interpolate_missing_spots()
         
         self.discount_factors = {}
         self.construct_piecewise_discount_curve()
+
+    def _linear_interpolate_missing_spots(self):
+        """
+        Internal Guard Rail: Fills missing intermediate tenors (like 6Y, 8Y, 9Y)
+        via linear interpolation to protect cumulative bootstrap loops.
+        """
+        known_tenors = []
+        known_rates = []
+        
+        for t, label in self.tenor_map.items():
+            if label in self.spot_rates and self.spot_rates[label] > 0.0:
+                known_tenors.append(t)
+                known_rates.append(self.spot_rates[label])
+                
+        if not known_tenors:
+            return
+            
+        for t, label in self.tenor_map.items():
+            if label not in self.spot_rates or self.spot_rates[label] == 0.0:
+                # Interpolate from nearest known coordinates
+                interpolated_rate = np.interp(t, known_tenors, known_rates)
+                self.spot_rates[label] = float(interpolated_rate)
 
     def construct_piecewise_discount_curve(self):
         r"""
@@ -31,19 +56,18 @@ class BootstrappedDiscountCurve:
         Solves for discrete nodes and handles wide long-end gaps.
         Formula: P(0, T) = (1 - R_T * \sum P(0, t_i)) / (1 + R_T)
         """
-        # Baseline anchor property
         self.discount_factors[0.0] = 1.0
         
-        # 1. Money Market Node (3M Cash)
-        r_3m = self.spot_rates.get('3M', 0.0)
-        self.discount_factors[0.25] = 1.0 / (1 + r_3m * 0.25)
+        # 1. Money Market Node (3M Cash) - Convert percentage rate to decimal fraction
+        r_3m = self.spot_rates.get('3M', 0.0) / 100.0
+        self.discount_factors[0.25] = 1.0 / (1.0 + r_3m * 0.25)
         
         # 2. Sequential Bootstrapping Loop
         for t in self.maturities:
             if t == 0.25:
                 continue
                 
-            r_t = self.spot_rates.get(self.tenor_map[t], 0.0)
+            r_t = self.spot_rates.get(self.tenor_map[t], 0.0) / 100.0
             
             # For tightly quoted continuous annual tenors (1Y through 10Y)
             if t <= 10.0:
@@ -52,12 +76,10 @@ class BootstrappedDiscountCurve:
             
             # For sparse long-end broker tenors (12Y, 15Y, 20Y, 25Y, 30Y)
             else:
-                # Identify preceding anchor point to isolate the gap boundary
                 prev_t = max([n for n in self.maturities if n < t])
                 gap = t - prev_t
                 
-                # Approximate the spot decay across the unquoted years via log-linear interpolation
-                r_prev = self.spot_rates.get(self.tenor_map[prev_t], 0.0)
+                r_prev = self.spot_rates.get(self.tenor_map[prev_t], 0.0) / 100.0
                 approx_r_step = r_prev + ((r_t - r_prev) / gap)
                 
                 self.discount_factors[t] = self.discount_factors[prev_t] * np.exp(-approx_r_step * gap)
@@ -65,15 +87,14 @@ class BootstrappedDiscountCurve:
     def get_discount_factor(self, T):
         r"""
         Exposes continuous log-linear discount factors P(0, T) for any arbitrary year fraction T.
-        Essential for pricing custom, non-standard options or forward start maturities.
+        Essential for pricing custom options or forward start maturities.
         """
         if T in self.discount_factors:
             return self.discount_factors[T]
         if T < 0.0:
             return 1.0
         if T > 30.0:
-            # Bound lock tail limit condition
-            return self.discount_factors[30.0] * np.exp(-self.spot_rates.get('30Y', 0.0) * (T - 30.0))
+            return self.discount_factors[30.0] * np.exp(-(self.spot_rates.get('30Y', 0.0) / 100.0) * (T - 30.0))
             
         known_nodes = sorted(list(self.discount_factors.keys()))
         t_left = max([n for n in known_nodes if n <= T])
