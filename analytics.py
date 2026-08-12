@@ -181,6 +181,7 @@ def generate_forward_block_matrix(curve_obj):
     Layer 2 Matrix Block Engine:
     Generates a comprehensive 2D grid matrix of all forward start dates (n)
     vs all available forward contract lengths (m) for the current active date.
+    Protected: Stems terminal boundary crashes by enforcing a strict < 30.0 year horizon ceiling.
     """
     start_lookup = {
         '3M': 0.25, '1Y': 1.0, '2Y': 2.0, '3Y': 3.0, '4Y': 4.0, 
@@ -198,7 +199,9 @@ def generate_forward_block_matrix(curve_obj):
             start_n = start_lookup[n_str]
             tenor_m = length_lookup[m_str]
             
-            if (start_n + tenor_m) > 30.0:
+            # FIXED CRITICALceiling BOUND: Enforce strict less-than cutoff boundary (< 30.0) 
+            # This completely blocks terminal KeyError math cracks inside your curve objects
+            if (start_n + tenor_m) >= 30.0:
                 grid_df.loc[n_str, m_str] = 0.0
                 continue
                 

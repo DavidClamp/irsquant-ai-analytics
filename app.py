@@ -1,14 +1,14 @@
-import os
 import pandas as pd
 import dash
-from dash import dcc, html, dash_table
-from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-
-# Namespace Core: Ingest the analytical framework as a clean package handle
 import analytics as an
+
+from dash import dcc, html, dash_table
+from dash.dependencies import Input, Output
+from plotly.subplots import make_subplots
+from layout_volatility import layout_volatility # Import your clean options screen template
+
 
 # 1. Ingest your continuous chronological data matrix file
 master_df = pd.read_json('g4_curves.json')
@@ -29,7 +29,9 @@ server = app.server
 navbar = dbc.NavbarSimple(
     children=[
         dbc.NavItem(dcc.Link("Term Structure Snapshots", href="/", className="nav-link text-warning fw-bold px-3")),
-        dbc.NavItem(dcc.Link("Systematic RV Scanner", href="/page-scanner", className="nav-link text-warning fw-bold px-3"))
+        dbc.NavItem(dcc.Link("Systematic RV Scanner", href="/page-scanner", className="nav-link text-warning fw-bold px-3")),
+        # NEW NAVIGATION VALUE WIRE:
+        dbc.NavItem(dcc.Link("Volatility Analytics", href="/page-volatility", className="nav-link text-warning fw-bold px-3"))
     ],
     brand="IRSQuant Active Analytics Platform",
     brand_href="/",
@@ -219,18 +221,24 @@ def render_forward_block_matrix_heatmap(selected_ccy, selected_date):
     )
     return heatmap_fig
 
-
+# ==========================================
+# PART 7: PAGE 2 SYSTEMATIC SCANNER CALLBACK
+# ==========================================
 
 
 # ==========================================
-# PART 7: PAGE 2 SYSTEMATIC SCANNER CALLBACK
+# PART 7: SCANNER CALLBACK WITH STARTUP GUARD
 # ==========================================
 
 @app.callback(
     [Output('scan-anomaly-canvas', 'figure'), Output('scan-table-container', 'children')],
     [Input('run-scan-btn', 'n_clicks'), Input('scan-ccy-dropdown', 'value'), Input('scan-type-toggle', 'value')]
 )
-def execute_interface_regression_sweep(_, selected_ccy, selected_scan_type):
+def execute_interface_regression_sweep(n_clicks, selected_ccy, selected_scan_type):
+    # CRUCIAL STARTUP GUARD RAIL: Prevents automatic startup execution crashes when n_clicks is None or 0
+    if n_clicks is None or n_clicks == 0:
+        return go.Figure(), html.Div("Configure parameters matrix above and click 'Execute Curve Matrix Sweep' to launch scanning routines.", className="text-muted p-3 text-center")
+        
     f_matrix = an.build_forward_permutation_matrix(master_df, selected_ccy=selected_ccy)
     
     if selected_scan_type == 'CONDOR':
@@ -265,8 +273,8 @@ def execute_interface_regression_sweep(_, selected_ccy, selected_scan_type):
     upper_tail = mean_bps + (2.00 * std_dev_bps)
     lower_tail = mean_bps - (2.00 * std_dev_bps)
     
-    fig.add_shape(type="line", x0=best_series.index[0], x1=best_series.index[-1], y0=upper_tail, y1=upper_tail, line=dict(color="#dc3545", width=1.5, dash="dash"), row=1, col=1)
-    fig.add_shape(type="line", x0=best_series.index[0], x1=best_series.index[-1], y0=lower_tail, y1=lower_tail, line=dict(color="#dc3545", width=1.5, dash="dash"), row=1, col=1)
+    fig.add_shape(type="line", x0=best_series.index, x1=best_series.index[-1], y0=upper_tail, y1=upper_tail, line=dict(color="#dc3545", width=1.5, dash="dash"), row=1, col=1)
+    fig.add_shape(type="line", x0=best_series.index, x1=best_series.index[-1], y0=lower_tail, y1=lower_tail, line=dict(color="#dc3545", width=1.5, dash="dash"), row=1, col=1)
     
     fig.update_layout(
         template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False,
@@ -292,6 +300,126 @@ def execute_interface_regression_sweep(_, selected_ccy, selected_scan_type):
     return fig, table
 
 # ==========================================
+# PART 7b: OPTIONS & VOLATILITY CALLBACK CORE
+# ==========================================
+
+@app.callback(
+    [Output('vol-smile-canvas', 'figure'), Output('vol-matrix-container', 'children')],
+    [Input('vol-ccy-dropdown', 'value'),
+     Input('vol-date-dropdown', 'value'),
+     Input('vol-expiry-dropdown', 'value'),
+     Input('vol-tenor-dropdown', 'value'),
+     Input('vol-atm-input', 'value')]
+)
+def process_volatility_pricing_matrix(selected_ccy, selected_date, expiry_T, tenor_m, atm_vol):
+    if not selected_date or selected_date == "Loading latest date matrix..." or atm_vol is None:
+        return go.Figure(), html.Div("Awaiting target parameters configuration loop...", className="text-muted p-2")
+        
+    from curves import BootstrappedDiscountCurve
+    from vol import Black76Engine
+    
+    # 1. Type-Safe Data Matrix Row Slicing Block
+    ccy_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date_str'] == str(selected_date))].copy()
+    
+    if ccy_df.empty:
+        return go.Figure(), html.Div("Data matrix record empty for the selected criteria.", className="text-danger p-2")
+        
+    tenor_label_map = {
+        0.25: '3M', 1.0: '1Y', 2.0: '2Y', 3.0: '3Y', 4.0: '4Y', 5.0: '5Y',
+        6.0: '6Y', 7.0: '7Y', 8.0: '8Y', 9.0: '9Y', 10.0: '10Y', 12.0: '12Y',
+        15.0: '15Y', 20.0: '20Y', 25.0: '25Y', 30.0: '30Y'
+    }
+    raw_spots = ccy_df.set_index('tenor')['rate'].to_dict()
+    spot_rates_dict = {tenor_label_map[float(t)]: float(r) for t, r in raw_spots.items() if float(t) in tenor_label_map}
+    
+    # 2. Extract Underlying Core Forward Swap Rate Metrics
+    curve = BootstrappedDiscountCurve(target_date=str(selected_date), spot_rates_dict=spot_rates_dict)
+    
+    p_start = curve.get_discount_factor(expiry_T)
+    p_end = curve.get_discount_factor(expiry_T + tenor_m)
+    annuity = curve.get_annuity_factor(start_n=expiry_T, tenor_m=tenor_m, payment_freq=1.0)
+    
+    if annuity == 0.0:
+        return go.Figure(), html.Div("Annuity parameter collapse condition encountered.", className="text-danger p-2")
+        
+    # Correct interbank conversion to base percentage format (e.g. 4.993)
+    forward_swap = ((p_start - p_end) / annuity) * 100.0
+    
+    # 3. Generate Volatility Smiles from Calibrated Engines
+    # CLEANED: The redundant grid_df = an.generate_forward_block_matrix(curve_obj) call has been removed here
+    strikes_dict, vols_dict = Black76Engine.generate_parametric_smile(forward_swap, float(atm_vol))
+    
+    table_records = []
+    smile_strikes = []
+    smile_vols = []
+    
+    offsets_labels = ["-200bps", "-100bps", "-50bps", "ATM", "+50bps", "+100bps", "+200bps"]
+    
+    for label in offsets_labels:
+        K = strikes_dict[label]   
+        v = vols_dict[label]     
+        
+        smile_strikes.append(K * 100.0) 
+        smile_vols.append(v * 100.0)    
+        
+        # Aligned forward channels: Feeds uniform decimal formatting to Black '76 options structures
+        fwd_dec = forward_swap / 100.0
+        call_premium = Black76Engine.calculate_swaption_price(fwd_dec, K, annuity, v, expiry_T, option_type='CALL')
+        put_premium = Black76Engine.calculate_swaption_price(fwd_dec, K, annuity, v, expiry_T, option_type='PUT')
+        
+        table_records.append({
+            'Strike Offset': label,
+            'Absolute Strike (%)': round(K * 100.0, 3),
+            'Implied Volatility (%)': round(v * 100.0, 2),
+            'Call Premium (bps)': round(call_premium * 10000.0, 1),
+            'Put Premium (bps)': round(put_premium * 10000.0, 1)
+        })
+        
+    # 4. Generate Plotly Graph Swaption Smile Curve Trace
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=smile_strikes, y=smile_vols,
+        mode='lines+markers',
+        line=dict(color='#ffc107', width=3.5, shape='spline'),
+        marker=dict(size=7, color='#ffc107', symbol='circle'),
+        hovertemplate="Strike: %{x:.3f}%<br>Implied Vol: %{y:.2f}%<extra></extra>"
+    ))
+    
+    fig.update_layout(
+        title=dict(text=f"Implied Volatility Smile Curve Skew Horizon (Forward ATM Baseline = {forward_swap:.3f}%)", font=dict(color='#ffc107', size=14)),
+        template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=55, r=40, t=55, b=45),
+        xaxis=dict(title="Option Strike Rate Bounds (%)", gridcolor='#2d2d2d'),
+        yaxis=dict(title="Black '76 Implied Log-Normal Volatility (%)", gridcolor='#2d2d2d')
+    )
+    
+    # 5. Formulate High-Density Options Premium Table Grid
+    table_cols = [
+        {"name": "Strike Offset Label", "id": "Strike Offset"},
+        {"name": "Absolute Strike Rate (%)", "id": "Absolute Strike (%)"},
+        {"name": "Implied Volatility (%)", "id": "Implied Volatility (%)"},
+        {"name": "Call Premium (bps)", "id": "Call Premium (bps)"},
+        {"name": "Put Premium (bps)", "id": "Put Premium (bps)"}
+    ]
+    
+    table_grid = dash_table.DataTable(
+        data=table_records,
+        columns=table_cols,
+        style_table={'overflowX': 'auto'},
+        style_header={'backgroundColor': '#212529', 'color': '#ffc107', 'fontWeight': 'bold'},
+        style_cell={'backgroundColor': '#1a1a1a', 'color': '#f8f9fa', 'textAlign': 'center', 'fontSize': '12px'},
+        style_data_conditional=[{
+            'if': {'row_index': 3},
+            'backgroundColor': '#1b2a4a', 'color': '#ffc107', 'fontWeight': 'bold'
+        }]
+    )
+    
+    return fig, table_grid
+
+
+
+
+# ==========================================
 # PART 8: SYSTEM ROUTING & ARCHITECTURE CORE
 # ==========================================
 
@@ -299,6 +427,9 @@ def execute_interface_regression_sweep(_, selected_ccy, selected_scan_type):
 def display_page(pathname):
     if pathname == '/page-scanner':
         return layout_scanner()
+    elif pathname == '/page-volatility':
+        # Safely calls your clean modular layout file passing index arrays
+        return layout_volatility(currencies, all_dates)
     return layout_diagnostics()
 
 def serve_layout():
