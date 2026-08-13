@@ -276,10 +276,14 @@ def execute_interface_regression_sweep(n_clicks, selected_ccy, selected_scan_typ
         margin=dict(l=40, r=20, t=20, b=40)
     )
     
-    fig.update_yaxes(title="Residual Dislocation (bps)", gridcolor='#2d2d2d', row=1, col=1)
-    fig.update_xaxes(title="Historical Timeline Axis", gridcolor='#2d2d2d', row=1, col=1)
+    # ADD THESE EXPLICIT AXIS PROPERTY FORMAT LOCKS TO PURGE THE "f" TEXT HIGHLIGHTS:
+    fig.update_yaxes(title="Residual Dislocation (bps)", tickformat=".1f", gridcolor='#2d2d2d', row=1, col=1)
+    fig.update_xaxes(title="Historical Timeline Axis", type='category', gridcolor='#2d2d2d', row=1, col=1)
     
-        # Front-Office Mapping Dictionary: Translates raw data keys into professional titles
+    fig.update_xaxes(title="Frequency Count", tickformat="d", gridcolor='#2d2d2d', row=1, col=2)
+    fig.update_yaxes(gridcolor='#2d2d2d', row=1, col=2)
+
+        # Front-Office Mapping Dictionary: Translates raw data keys into titles
     column_formatting = {
         'Structure': 'Structure Permutation',
         'Hedge Ratio (Short)': 'Hedge Ratio (Short)',
