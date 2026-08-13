@@ -3,10 +3,6 @@ from dash import dcc, html
 import dash_bootstrap_components as dbc
 
 def layout_volatility(currencies, all_dates):
-    """
-    Volatility View Blueprint Component.
-    Keeps app.py lean by isolating your options pricing presentation matrix.
-    """
     expiries = [0.25, 0.5, 1.0, 2.0, 5.0, 10.0]
     expiry_labels = ["3M Expiry", "6M Expiry", "1Y Expiry", "2Y Expiry", "5Y Expiry", "10Y Expiry"]
     
@@ -14,12 +10,11 @@ def layout_volatility(currencies, all_dates):
         dbc.Row([
             dbc.Col([
                 html.H3("Implied Volatility Smile & Swaption Pricing Terminal", className="text-warning fw-bold mb-2"),
-                html.P("Non-linear analytics: Black '76 pricing models mapping skew surfaces and option Greeks across custom OTM strike deltas.", className="text-muted mb-4")
+                html.P("Non-linear analytics: Comparative stochastic SABR vs Quadratic polynomial curve skews and 3D term surfaces.", className="text-muted mb-4")
             ], width=12)
         ]),
         
         dbc.Row([
-            # Options and Volatility Control Sidebar Container Panel
             dbc.Col([
                 html.Div([
                     html.H5("Option Configuration", className="text-warning mb-3"),
@@ -46,17 +41,15 @@ def layout_volatility(currencies, all_dates):
                 ], className="p-3 bg-dark border border-secondary rounded mb-4")
             ], width=3),
             
-            # Interactive Volatility Smile Skew and Price Matrix Output Canvas Blocks
             dbc.Col([
                 dbc.Row([
-                    dbc.Col([
-                        dcc.Graph(id='vol-smile-canvas', style={'height': '400px'}, className="mb-4")
-                    ], width=12)
-                ]),
+                    # Side-by-Side Graph Layout Areas
+                    dbc.Col([dcc.Graph(id='vol-smile-canvas', style={'height': '380px'})], width=6),
+                    dbc.Col([dcc.Graph(id='vol-grid-canvas', style={'height': '380px'})], width=6)
+                ], className="mb-4"),
                 dbc.Row([
                     dbc.Col([
-                        html.H5("Strike Dislocation & Premium Matrix Grid", className="text-warning small fw-bold mb-2"),
-                        # FIXED CRITICAL LAYOUT KEY: Container ID matches callback outputs perfectly
+                        html.H5("Strike Dislocation & Premium Matrix Grid (SABR Calibrated)", className="text-warning small fw-bold mb-2"),
                         html.Div(id='vol-matrix-container', className="bg-dark p-2 border border-secondary rounded")
                     ], width=12)
                 ])

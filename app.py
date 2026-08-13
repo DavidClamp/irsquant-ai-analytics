@@ -309,9 +309,12 @@ def execute_interface_regression_sweep(n_clicks, selected_ccy, selected_scan_typ
 # ==========================================
 # PART 7b: OPTIONS & VOLATILITY CALLBACK CORE
 # ==========================================
+# COMPARATIVE STOCHASTIC OPTIONS CALLBACK CORE
 
 @app.callback(
-    [Output('vol-smile-canvas', 'figure'), Output('vol-matrix-container', 'children')],
+    [Output('vol-smile-canvas', 'figure'), 
+     Output('vol-grid-canvas', 'figure'), 
+     Output('vol-matrix-container', 'children')],
     [Input('vol-ccy-dropdown', 'value'),
      Input('vol-date-dropdown', 'value'),
      Input('vol-expiry-dropdown', 'value'),
@@ -320,16 +323,15 @@ def execute_interface_regression_sweep(n_clicks, selected_ccy, selected_scan_typ
 )
 def process_volatility_pricing_matrix(selected_ccy, selected_date, expiry_T, tenor_m, atm_vol):
     if not selected_date or selected_date == "Loading latest date matrix..." or atm_vol is None:
-        return go.Figure(), html.Div("Awaiting target parameters configuration loop...", className="text-muted p-2")
+        return go.Figure(), go.Figure(), html.Div("Awaiting target parameters...", className="text-muted p-2")
         
     from curves import BootstrappedDiscountCurve
     from vol import Black76Engine
     
-    # 1. Type-Safe Data Matrix Row Slicing Block
     ccy_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date_str'] == str(selected_date))].copy()
     
     if ccy_df.empty:
-        return go.Figure(), html.Div("Data matrix record empty for the selected criteria.", className="text-danger p-2")
+        return go.Figure(), go.Figure(), html.Div("Data matrix record empty.", className="text-danger p-2")
         
     tenor_label_map = {
         0.25: '3M', 1.0: '1Y', 2.0: '2Y', 3.0: '3Y', 4.0: '4Y', 5.0: '5Y',
@@ -339,7 +341,6 @@ def process_volatility_pricing_matrix(selected_ccy, selected_date, expiry_T, ten
     raw_spots = ccy_df.set_index('tenor')['rate'].to_dict()
     spot_rates_dict = {tenor_label_map[float(t)]: float(r) for t, r in raw_spots.items() if float(t) in tenor_label_map}
     
-    # 2. Extract Underlying Core Forward Swap Rate Metrics
     curve = BootstrappedDiscountCurve(target_date=str(selected_date), spot_rates_dict=spot_rates_dict)
     
     p_start = curve.get_discount_factor(expiry_T)
@@ -347,71 +348,87 @@ def process_volatility_pricing_matrix(selected_ccy, selected_date, expiry_T, ten
     annuity = curve.get_annuity_factor(start_n=expiry_T, tenor_m=tenor_m, payment_freq=1.0)
     
     if annuity == 0.0:
-        return go.Figure(), html.Div("Annuity parameter collapse condition encountered.", className="text-danger p-2")
+        return go.Figure(), go.Figure(), html.Div("Annuity collapse.", className="text-danger p-2")
         
-    # Correct interbank conversion to base percentage format (e.g. 4.993)
     forward_swap = ((p_start - p_end) / annuity) * 100.0
     
-    # 3. Generate Volatility Smiles from Calibrated Engines
-    # CLEANED: The redundant grid_df = an.generate_forward_block_matrix(curve_obj) call has been removed here
-    strikes_dict, vols_dict = Black76Engine.generate_parametric_smile(forward_swap, float(atm_vol))
+    # 1. Generate comparative curves out of vol.py
+    strikes_dict, quad_vols, sabr_vols = Black76Engine.generate_sabr_vs_quadratic_smiles(forward_swap, float(atm_vol), float(expiry_T))
     
     table_records = []
     smile_strikes = []
-    smile_vols = []
+    smile_quad_y = []
+    smile_sabr_y = []
     
     offsets_labels = ["-200bps", "-100bps", "-50bps", "ATM", "+50bps", "+100bps", "+200bps"]
     
     for label in offsets_labels:
         K = strikes_dict[label]   
-        v = vols_dict[label]     
+        v_sabr = sabr_vols[label]
         
         smile_strikes.append(K * 100.0) 
-        smile_vols.append(v * 100.0)    
+        smile_quad_y.append(quad_vols[label] * 100.0)
+        smile_sabr_y.append(v_sabr * 100.0)
         
-        # Aligned forward channels: Feeds uniform decimal formatting to Black '76 options structures
         fwd_dec = forward_swap / 100.0
-        call_premium = Black76Engine.calculate_swaption_price(fwd_dec, K, annuity, v, expiry_T, option_type='CALL')
-        put_premium = Black76Engine.calculate_swaption_price(fwd_dec, K, annuity, v, expiry_T, option_type='PUT')
+        # Use premium calibration calculated strictly via stochastic SABR weights
+        call_premium = Black76Engine.calculate_swaption_price(fwd_dec, K, annuity, v_sabr, expiry_T, option_type='CALL')
+        put_premium = Black76Engine.calculate_swaption_price(fwd_dec, K, annuity, v_sabr, expiry_T, option_type='PUT')
         
         table_records.append({
             'Strike Offset': label,
             'Absolute Strike (%)': round(K * 100.0, 3),
-            'Implied Volatility (%)': round(v * 100.0, 2),
+            'SABR Implied Vol (%)': round(v_sabr * 100.0, 2),
             'Call Premium (bps)': round(call_premium * 10000.0, 1),
             'Put Premium (bps)': round(put_premium * 10000.0, 1)
         })
         
-    # 4. Generate Plotly Graph Swaption Smile Curve Trace
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=smile_strikes, y=smile_vols,
-        mode='lines+markers',
-        line=dict(color='#ffc107', width=3.5, shape='spline'),
-        marker=dict(size=7, color='#ffc107', symbol='circle'),
-        hovertemplate="Strike: %{x:.3f}%<br>Implied Vol: %{y:.2f}%<extra></extra>"
+    # 2. Draw Comparative Smile Chart Canvas
+    smile_fig = go.Figure()
+    smile_fig.add_trace(go.Scatter(
+        x=smile_strikes, y=smile_quad_y, mode='lines',
+        line=dict(color='#ffc107', width=2, dash='dash'), name='Quadratic Model'
     ))
-    
-    fig.update_layout(
-        title=dict(text=f"Implied Volatility Smile Curve Skew Horizon (Forward ATM Baseline = {forward_swap:.3f}%)", font=dict(color='#ffc107', size=14)),
+    smile_fig.add_trace(go.Scatter(
+        x=smile_strikes, y=smile_sabr_y, mode='lines+markers',
+        line=dict(color='#0d6efd', width=3.5, shape='spline'),
+        marker=dict(size=6, color='#0d6efd'), name='Stochastic SABR Model'
+    ))
+    smile_fig.update_layout(
+        title=dict(text=f"Stochastic SABR vs Parametric Skew (ATM Forward = {forward_swap:.3f}%)", font=dict(color='#ffc107', size=12)),
         template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=55, r=40, t=55, b=45),
-        xaxis=dict(title="Option Strike Rate Bounds (%)", gridcolor='#2d2d2d'),
-        yaxis=dict(title="Black '76 Implied Log-Normal Volatility (%)", gridcolor='#2d2d2d')
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(l=40, r=20, t=50, b=40),
+        xaxis=dict(title="Strike rate (%)", gridcolor='#2d2d2d'),
+        yaxis=dict(title="Implied Volatility (%)", gridcolor='#2d2d2d')
     )
     
-    # 5. Formulate High-Density Options Premium Table Grid
+    # 3. Draw institutional 3D surface term grid heatmap matrix canvas
+    vol_matrix_df = Black76Engine.generate_volatility_term_structure_grid(float(atm_vol))
+    grid_fig = go.Figure(data=go.Heatmap(
+        z=vol_matrix_df.values, x=vol_matrix_df.columns, y=vol_matrix_df.index,
+        colorscale='Viridis', text=vol_matrix_df.values, texttemplate="%{text}%",
+        hovertemplate="Expiry: %{y}<br>Underlying: %{x}<br>Vol: %{z}%<extra></extra>"
+    ))
+    grid_fig.update_layout(
+        title=dict(text="Institutional 3D Volatility Term Grid Surface Heatmap (%)", font=dict(color='#ffc107', size=12)),
+        template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=40, r=20, t=50, b=40),
+        xaxis=dict(title="Underlying Swap Maturity length"),
+        yaxis=dict(title="Swaption Expiry Horizon")
+    )
+    
+    # 4. Compile DataTable data grid columns list
     table_cols = [
         {"name": "Strike Offset Label", "id": "Strike Offset"},
         {"name": "Absolute Strike Rate (%)", "id": "Absolute Strike (%)"},
-        {"name": "Implied Volatility (%)", "id": "Implied Volatility (%)"},
+        {"name": "SABR Implied Volatility (%)", "id": "SABR Implied Vol (%)"},
         {"name": "Call Premium (bps)", "id": "Call Premium (bps)"},
         {"name": "Put Premium (bps)", "id": "Put Premium (bps)"}
     ]
     
     table_grid = dash_table.DataTable(
-        data=table_records,
-        columns=table_cols,
+        data=table_records, columns=table_cols,
         style_table={'overflowX': 'auto'},
         style_header={'backgroundColor': '#212529', 'color': '#ffc107', 'fontWeight': 'bold'},
         style_cell={'backgroundColor': '#1a1a1a', 'color': '#f8f9fa', 'textAlign': 'center', 'fontSize': '12px'},
@@ -421,10 +438,7 @@ def process_volatility_pricing_matrix(selected_ccy, selected_date, expiry_T, ten
         }]
     )
     
-    return fig, table_grid
-
-
-
+    return smile_fig, grid_fig, table_grid
 
 # ==========================================
 # PART 8: SYSTEM ROUTING & ARCHITECTURE CORE
