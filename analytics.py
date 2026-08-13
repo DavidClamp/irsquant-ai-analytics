@@ -94,6 +94,7 @@ def build_forward_permutation_matrix(master_df, selected_ccy):
 def run_systematic_butterfly_scan(f_matrix_df):
     """
     Layer 2 Strategy Scanner: Runs zero-constant linear regressions for 3-node loops.
+    Calibrated: Calculates the forward-looking 1-Year Roll/Carry assuming curve stability.
     """
     all_legs = list(f_matrix_df.columns)
     scan_results = []
@@ -119,12 +120,39 @@ def run_systematic_butterfly_scan(f_matrix_df):
         struct_name = f"FLY: {mid_f} vs [{short_f} & {long_f}]"
         series_storage[struct_name] = pd.Series(residuals, index=f_matrix_df.index)
         
+        # QUANT CARRY CALCULATION: Extract contract names to identify rolled horizon positions
+        # e.g., If mid leg is "3F1Y", the 1-Year rolled equivalent contract is "2F1Y"
+        try:
+            short_start = int(float(short_f.replace('F1Y', '')))
+            mid_start = int(float(mid_f.replace('F1Y', '')))
+            long_start = int(float(long_f.replace('F1Y', '')))
+            
+            # Map out rolled contract handle strings safely bounded to your curve floor layout (0.25Y / 3M)
+            short_roll_str = f"{max(0.25, short_start - 1.0)}F1Y" if short_start > 1 else "0.25F1Y"
+            mid_roll_str   = f"{max(0.25, mid_start - 1.0)}F1Y"  if mid_start > 1 else "0.25F1Y"
+            long_roll_str  = f"{max(0.25, long_start - 1.0)}F1Y"  if long_start > 1 else "0.25F1Y"
+            
+            # Verify rolled legs exist in our compiled forward matrix columns to prevent KeyError breaks
+            if short_roll_str in f_matrix_df.columns and mid_roll_str in f_matrix_df.columns and long_roll_str in f_matrix_df.columns:
+                rolled_short = f_matrix_df[short_roll_str].iloc[-1]
+                rolled_mid   = f_matrix_df[mid_roll_str].iloc[-1]
+                rolled_long  = f_matrix_df[long_roll_str].iloc[-1]
+                
+                # Roll spread calculates where the structure settles as it slides 1 Year down the maturity line
+                rolled_spread = rolled_mid - (coefs[0] * rolled_short + (coefs[1] * rolled_long if len(coefs) > 1 else 0.0))
+                one_year_roll_bps = (rolled_spread - current_residual) * 10000.0
+            else:
+                one_year_roll_bps = 0.0
+        except Exception:
+            one_year_roll_bps = 0.0
+            
         scan_results.append({
             'Structure': struct_name,
             'Hedge Ratio (Short)': round(coefs[0], 2) if len(coefs) > 0 else 0.0,
             'Hedge Ratio (Long)': round(coefs[1], 2) if len(coefs) > 1 else 0.0,
             'R-Squared': round(model.score(X, y), 4),
             'Current Residual (bps)': round(current_residual * 10000, 2),
+            '1Y Horizon Roll (bps)': round(one_year_roll_bps, 1), # EXPOSES HOLISTIC PORTFOLIO CARRY BLEED
             'Z-Score (Outlier)': round(z_score, 2)
         })
         
@@ -132,6 +160,7 @@ def run_systematic_butterfly_scan(f_matrix_df):
     if not rank_df.empty:
         rank_df = rank_df.sort_values(by='Z-Score (Outlier)', key=abs, ascending=False)
     return rank_df, series_storage
+
 
 def run_systematic_condor_scan(f_matrix_df):
     """
@@ -175,6 +204,7 @@ def run_systematic_condor_scan(f_matrix_df):
     if not rank_df.empty:
         rank_df = rank_df.sort_values(by='Z-Score (Outlier)', key=abs, ascending=False)
     return rank_df, series_storage
+
 
 def generate_forward_block_matrix(curve_obj):
     """

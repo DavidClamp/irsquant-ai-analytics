@@ -222,11 +222,6 @@ def render_forward_block_matrix_heatmap(selected_ccy, selected_date):
     return heatmap_fig
 
 # ==========================================
-# PART 7: PAGE 2 SYSTEMATIC SCANNER CALLBACK
-# ==========================================
-
-
-# ==========================================
 # PART 7: SCANNER CALLBACK WITH STARTUP GUARD
 # ==========================================
 
@@ -284,9 +279,20 @@ def execute_interface_regression_sweep(n_clicks, selected_ccy, selected_scan_typ
     fig.update_yaxes(title="Residual Dislocation (bps)", gridcolor='#2d2d2d', row=1, col=1)
     fig.update_xaxes(title="Historical Timeline Axis", gridcolor='#2d2d2d', row=1, col=1)
     
+        # Front-Office Mapping Dictionary: Translates raw data keys into professional titles
+    column_formatting = {
+        'Structure': 'Structure Permutation',
+        'Hedge Ratio (Short)': 'Hedge Ratio (Short)',
+        'Hedge Ratio (Long)': 'Hedge Ratio (Long)',
+        'R-Squared': 'R-Squared (R²)',
+        'Current Residual (bps)': 'Current Residual (bps)',
+        '1Y Horizon Roll (bps)': '1Y Horizon Roll (bps)',
+        'Z-Score (Outlier)': 'Z-Score Rank'
+    }
+
     table = dash_table.DataTable(
         data=rank_df.to_dict('records'), 
-        columns=[{"name": i, "id": i} for i in rank_df.columns], 
+        columns=[{"name": column_formatting.get(i, i), "id": i} for i in rank_df.columns], 
         sort_action="native", 
         page_size=10, 
         style_table={'overflowX': 'auto'}, 
@@ -294,9 +300,10 @@ def execute_interface_regression_sweep(n_clicks, selected_ccy, selected_scan_typ
         style_cell={'backgroundColor': '#1a1a1a', 'color': '#f8f9fa', 'textAlign': 'center', 'fontSize': '12px'},
         style_data_conditional=[{
             'if': {'filter_query': '{Z-Score (Outlier)} > 2.00 || {Z-Score (Outlier)} < -2.00'},
-            'backgroundColor': '#3a2512', 'color': '#ffc107'
+            'backgroundColor': '#3a2512', 'color': '#ffc107', 'fontWeight': 'bold'
         }]
     )
+
     return fig, table
 
 # ==========================================
