@@ -1,471 +1,239 @@
+# app.py - BLOCK 1: MAIN HEADERS, DATA INGESTION & CORES REGISTER
 import pandas as pd
 import dash
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
-import analytics as an
-
 from dash import dcc, html, dash_table
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 from plotly.subplots import make_subplots
-from layout_volatility import layout_volatility # Import your clean options screen template
 
+# Ingest your sub-module analytics packages seamlessly
+import analytics as an
+from curves import BootstrappedDiscountCurve
+from vol import Black76Engine
+from execution import ExecutionOptimizer
 
-# 1. Ingest your continuous chronological data matrix file
+# Ingest your decoupled front-end layout presentation pack blueprints
+from layouts.diagnostics import layout_diagnostics
+from layouts.scanner import layout_scanner
+from layouts.volatility import layout_volatility
+from layouts.execution import layout_execution
+
+# Pull all presentation layout package blueprints cleanly out of your verified __init__.py index
+#from layouts import layout_diagnostics, layout_scanner, layout_volatility, layout_execution
+# ==========================================
+# DATA INGESTION & DATA ARCHITECTURE REGIME
+# ==========================================
 master_df = pd.read_json('g4_curves.json')
-
-# 2. Strict Type Coercion: Force formatting of data types to prevent serialization loops
 master_df['date'] = pd.to_datetime(master_df['date'])
 master_df['date_str'] = master_df['date'].dt.strftime('%Y-%m-%d')
 
-# 3. Establish the global selection index parameter arrays
 currencies = sorted(master_df['currency'].unique())
 all_dates = sorted(master_df['date_str'].unique())
 
-# 4. Instantiate the core web application container utilizing the Cyborg stylesheet
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.CYBORG])
+# ==========================================
+# INITIALISE APPLICATION APP SHELL FRAMEWORK
+# ==========================================
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.CYBORG], suppress_callback_exceptions=True)
 server = app.server
 
-# 5. Build out your front office corporate styling navbar shell structure
 navbar = dbc.NavbarSimple(
     children=[
         dbc.NavItem(dcc.Link("Term Structure Snapshots", href="/", className="nav-link text-warning fw-bold px-3")),
         dbc.NavItem(dcc.Link("Systematic RV Scanner", href="/page-scanner", className="nav-link text-warning fw-bold px-3")),
-        # NEW NAVIGATION VALUE WIRE:
-        dbc.NavItem(dcc.Link("Volatility Analytics", href="/page-volatility", className="nav-link text-warning fw-bold px-3"))
+        dbc.NavItem(dcc.Link("Volatility Analytics", href="/page-volatility", className="nav-link text-warning fw-bold px-3")),
+        dbc.NavItem(dcc.Link("Execution Optimizer Desk", href="/page-execution", className="nav-link text-warning fw-bold px-3"))
     ],
     brand="IRSQuant Active Analytics Platform",
     brand_href="/",
+    brand_style={'color': '#ffc107', 'fontWeight': 'bold'},
     color="dark",
     dark=True,
-    fluid=True,
-    className="mb-4 border-bottom border-secondary shadow"
+    className="mb-4 border-bottom border-secondary"
 )
 
+app.layout = html.Div([
+    dcc.Location(id='url', refresh=False),
+    navbar,
+    dbc.Container(id='page-content', fluid=True, className="pb-5")
+], style={'backgroundColor': '#0b0c10', 'minHeight': '100vh'})
+# app.py - BLOCK 2: INTERFACE CONTROLLER ROUTER & MONITOR CALLBACKS
 
 # ==========================================
-# PART 5: FRONT OFFICE VIEW LAYOUT BLUEPRINTS
+# URL INTERFACE CONTROLLER ROUTER MATRIX
 # ==========================================
-
-def layout_diagnostics():
-    return html.Div([
-        dbc.Row([
-            dbc.Col([
-                html.H3("Implied Forward Curve Term Snapshot Console", className="text-warning fw-bold mb-2"),
-                html.P("Dual-Regime Monitoring Engine: 1Y Forwards (0Y-10Y Horizon) | 5Y Forwards (10Y-30Y Horizon).", className="text-muted mb-4")
-            ], width=12)
-        ]),
-        
-        dbc.Row([
-            # Strategic selection filters configuration sidebar
-            dbc.Col([
-                html.Div([
-                    html.H5("Curve Configuration", className="text-warning mb-3"),
-                    
-                    html.Label("Select Currency Target:", className="text-light small fw-bold"),
-                    dcc.Dropdown(id='diag-ccy-dropdown', options=[{'label': c, 'value': c} for c in currencies], value='USD', className="text-dark mb-4"),
-                    
-                    html.Label("Review Historical Date:", className="text-light small fw-bold"),
-                    dcc.Dropdown(
-                        id='diag-date-dropdown', 
-                        options=[{'label': d, 'value': d} for d in all_dates], 
-                        value=all_dates[-1] if all_dates else None,            
-                        className="text-dark"
-                    )
-                ], className="p-3 bg-dark border border-secondary rounded mb-4")
-            ], width=3),
-
-            # Dual-Regime continuous canvas and accompanying matrix block surface panel
-            dbc.Col([
-                dcc.Graph(id='diag-twin-canvas', style={'height': '420px'}, className="mb-4"),
-                html.H5("Continuous Implied Forward Block Matrix Surface Grid (%)", className="text-warning small fw-bold mb-2"),
-                dcc.Graph(id='diag-matrix-heatmap', style={'height': '320px'})
-            ], width=9)     
-        ])
-    ])
-
-
-def layout_scanner():
-    return html.Div([
-        dbc.Row([
-            dbc.Col([
-                html.H3("Systematic Multi-Node Forward Curve Arbitrage Scanner", className="text-warning fw-bold mb-2"),
-                html.P("Zero-constant multivariable linear regressions monitoring systematic anomalies.", className="text-muted mb-4")
-            ], width=12)
-        ]),
-        
-        dbc.Row([
-            # Execution control panel sidebar trigger block
-            dbc.Col([
-                html.Div([
-                    html.H5("Scan Trigger Matrix", className="text-warning mb-3"),
-                    
-                    html.Label("Select Target Currency Block:", className="text-light small fw-bold"),
-                    dcc.Dropdown(id='scan-ccy-dropdown', options=[{'label': c, 'value': c} for c in currencies], value='USD', className="text-dark mb-4"),
-                    
-                    # Structure Type Selection Toggle Matrix Matrix
-                    html.Label("Select Structure Matrix Type:", className="text-light small fw-bold mb-2"),
-                    dcc.RadioItems(
-                        id='scan-type-toggle',
-                        options=[
-                            {'label': ' 3-Node Butterfly Scan (Body vs Wings)', 'value': 'FLY'},
-                            {'label': ' 4-Node Condor Scan (Up-Down-Down-Up Twist)', 'value': 'CONDOR'}
-                        ],
-                        value='FLY',
-                        labelStyle={'display': 'block', 'color': '#f8f9fa', 'fontSize': '13px'},
-                        className="mb-4"
-                    ),
-                    
-                    dbc.Button("Execute Curve Matrix Sweep", id='run-scan-btn', color="warning", className="w-100 fw-bold py-2")
-                ], className="p-3 bg-dark border border-secondary rounded mb-4")
-            ], width=3),
-            
-            # Interactive analytics charts canvas view area
-            dbc.Col([
-                dcc.Graph(id='scan-anomaly-canvas', style={'height': '400px'}, className="mb-4"),
-                html.Div(id='scan-table-container', className="bg-dark p-2 border border-secondary rounded")
-            ], width=9)
-        ])
-    ])
-
+@app.callback(Output('page-content', 'children'), Input('url', 'pathname'))
+def display_page(pathname):
+    if pathname == '/page-scanner':
+        return layout_scanner(currencies)
+    elif pathname == '/page-volatility':
+        return layout_volatility(currencies, all_dates)
+    elif pathname == '/page-execution':
+        return layout_execution(currencies)
+    return layout_diagnostics(currencies, all_dates)
 
 # ==========================================
-# PART 6: PAGE 1 DIAGNOSTICS CALLBACK CORE
+# PRESENTATION INTERFACE LAYER CALL-BACK LOOPS
 # ==========================================
 
 @app.callback(
-    Output('diag-twin-canvas', 'figure'),
+    [Output('diag-term-structure-snapshot', 'figure'), Output('diag-matrix-heatmap', 'figure')],
     [Input('diag-ccy-dropdown', 'value'), Input('diag-date-dropdown', 'value')]
 )
-def render_term_structure_forward_steps(selected_ccy, selected_date):
-    if not selected_date or selected_date == "Loading latest date matrix...":
-        return go.Figure()
-        
-    x_starts, x_ends, y_rates = an.extract_forward_curve_snapshot(master_df, selected_ccy, selected_date)
+def render_snapshot_curves(selected_ccy, selected_date):
+    if not selected_date: return go.Figure(), go.Figure()
+    day_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date_str'] == str(selected_date))].copy()
+    if day_df.empty: return go.Figure(), go.Figure()
     
-    if not y_rates:
-        return go.Figure()
-
-    x_timeline = []
-    y_stepped_rates = []
-    for i in range(len(y_rates)):
-        x_timeline.extend([x_starts[i], x_ends[i]])
-        y_stepped_rates.extend([y_rates[i], y_rates[i]])
-        
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=x_timeline, y=y_stepped_rates,
-        mode='lines+markers', line_shape='hv', name='Forward Curve',
-        line=dict(color='#ffc107', width=3.5),
-        marker=dict(size=6, symbol='square', color='#ffc107'),
-        hovertemplate="Horizon: %{x}Y<br>Forward Yield Rate: %{y:.2f}%<extra></extra>"
-    ))
-
-    fig.update_layout(
-        title=dict(text=f"Institutional Forward Curve Term Structure Snapshot ({selected_ccy} | Dual Horizon | {selected_date})", font=dict(color='#ffc107', size=14)),
-        template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False,
-        margin=dict(l=55, r=40, t=65, b=55),
-        xaxis=dict(title="Maturity Curve Horizon Timeline (Years out)", gridcolor='#2d2d2d', tickmode='linear', dtick=2.0, range=[0, 31.0]),
-        yaxis=dict(title="Forward Implied Interest Yield Rate (%)", gridcolor='#2d2d2d', range=[0.0, 6.0])
-    )
-    return fig
-
-@app.callback(
-    Output('diag-matrix-heatmap', 'figure'),
-    [Input('diag-ccy-dropdown', 'value'), Input('diag-date-dropdown', 'value')]
-)
-def render_forward_block_matrix_heatmap(selected_ccy, selected_date):
-    if not selected_date or selected_date == "Loading latest date matrix...":
-        return go.Figure()
-        
-    from curves import BootstrappedDiscountCurve
+    tenor_label_map = {0.25:'3M', 1.0:'1Y', 2.0:'2Y', 3.0:'3Y', 4.0:'4Y', 5.0:'5Y', 6.0:'6Y', 7.0:'7Y', 8.0:'8Y', 9.0:'9Y', 10.0:'10Y', 12.0:'12Y', 15.0:'15Y', 20.0:'20Y', 25.0:'25Y', 30.0:'30Y'}
+    raw_spots = day_df.set_index('tenor')['rate'].to_dict()
+    spot_rates_dict = {tenor_label_map[float(t)]: float(r) for t, r in raw_spots.items() if float(t) in tenor_label_map}
     
-    # Global institutional tenor definition map used to protect data ingestion channels
-    tenor_label_map = {
-        0.25: '3M', 1.0: '1Y', 2.0: '2Y', 3.0: '3Y', 4.0: '4Y', 
-        5.0: '5Y',  6.0: '6Y', 7.0: '7Y', 8.0: '8Y', 9.0: '9Y', 
-        10.0: '10Y', 12.0: '12Y', 15.0: '15Y', 20.0: '20Y', 
-        25.0: '25Y', 30.0: '30Y'
-    }
+    curve = BootstrappedDiscountCurve(target_date=str(selected_date), spot_rates_dict=spot_rates_dict)
     
-    heatmap_ccy_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date_str'] == str(selected_date))].copy()
+    fig_line = go.Figure()
+    tenors = sorted(list(curve.spot_rates.keys()), key=lambda x: float(x.replace('M', ''))/12 if 'M' in x else float(x.replace('Y', '')))
+    rates = [curve.spot_rates[t]*100 for t in tenors]
     
-    if heatmap_ccy_df.empty:
-        return go.Figure()
-        
-    raw_spots = heatmap_ccy_df.set_index('tenor')['rate'].to_dict()
+    fig_line.add_trace(go.Scatter(x=tenors, y=rates, mode='lines+markers', line_shape='hv', line=dict(color='#ffc107', width=3)))
+    fig_line.update_layout(title=f"Discrete Step Forward Snapshots - {selected_ccy} ({selected_date})", template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     
-    # CRUCIAL ACTIVATION: Transform raw float keys into valid institutional text labels
-    heatmap_spots_dict = {tenor_label_map[t]: float(r) for t, r in raw_spots.items() if t in tenor_label_map}
-    
-    # Instantiate the curve object with explicit validated keyword parameters
-    curve_obj = BootstrappedDiscountCurve(target_date=str(selected_date), spot_rates_dict=heatmap_spots_dict)
-    
-    grid_df = an.generate_forward_block_matrix(curve_obj)
-    
-    heatmap_fig = go.Figure(data=go.Heatmap(
-        z=grid_df.values,
-        x=grid_df.columns,
-        y=grid_df.index,
-        colorscale='Cividis',
-        text=grid_df.values,
-        texttemplate="%{text}%",
-        textfont={"size": 11, "color": "white"},
-        hovertemplate="Start Node: %{y}<br>Forward Length: %{x}<br>Yield Rate: %{z}%<extra></extra>"
-    ))
-    
-    heatmap_fig.update_layout(
-        template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=55, r=40, t=10, b=40),
-        xaxis=dict(title="Forward Contract Horizon Length (Tenor m)"),
-        yaxis=dict(title="Forward Start Delay Node (Expiry n)")
-    )
-    return heatmap_fig
-
-# ==========================================
-# PART 7: SCANNER CALLBACK WITH STARTUP GUARD
-# ==========================================
+    grid_df = an.generate_forward_block_matrix(curve)
+    fig_heat = go.Figure(data=go.Heatmap(z=grid_df.values, x=grid_df.columns, y=grid_df.index, colorscale='Cividis'))
+    fig_heat.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+    return fig_line, fig_heat
 
 @app.callback(
     [Output('scan-anomaly-canvas', 'figure'), Output('scan-table-container', 'children')],
-    [Input('run-scan-btn', 'n_clicks'), Input('scan-ccy-dropdown', 'value'), Input('scan-type-toggle', 'value')]
+    [Input('run-scan-btn', 'n_clicks')],
+    [State('scan-ccy-dropdown', 'value'), State('scan-type-toggle', 'value')]
 )
 def execute_interface_regression_sweep(n_clicks, selected_ccy, selected_scan_type):
-    # CRUCIAL STARTUP GUARD RAIL: Prevents automatic startup execution crashes when n_clicks is None or 0
     if n_clicks is None or n_clicks == 0:
-        return go.Figure(), html.Div("Configure parameters matrix above and click 'Execute Curve Matrix Sweep' to launch scanning routines.", className="text-muted p-3 text-center")
+        return go.Figure(), html.Div("Configure parameters above and click 'Execute Curve Matrix Sweep'.", className="text-muted p-3 text-center")
         
     f_matrix = an.build_forward_permutation_matrix(master_df, selected_ccy=selected_ccy)
+    rank_df, series_storage = an.run_systematic_condor_scan(f_matrix) if selected_scan_type == 'CONDOR' else an.run_systematic_butterfly_scan(f_matrix)
     
-    if selected_scan_type == 'CONDOR':
-        rank_df, series_storage = an.run_systematic_condor_scan(f_matrix)
-    else:
-        rank_df, series_storage = an.run_systematic_butterfly_scan(f_matrix)
-        
-    if rank_df.empty: 
-        return go.Figure(), html.Div("Empty DataFrame structural parsing exception state.", className="text-danger p-3")
+    if rank_df.empty: return go.Figure(), html.Div("Empty DataFrame exception.", className="text-danger p-3")
     
     best_structure_name = rank_df['Structure'].iloc[0]
     best_series = series_storage[best_structure_name]
     
     fig = make_subplots(rows=1, cols=2, column_widths=[0.6, 0.4])
+    fig.add_trace(go.Scatter(x=best_series.index, y=best_series.values*10000, mode='lines+markers', line_shape='hv', line=dict(color='#ffc107', width=2)), row=1, col=1)
+    fig.add_trace(go.Histogram(x=best_series.values*10000, marker_color='#0d6efd'), row=1, col=2)
+    fig.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
+    fig.update_yaxes(title="Residual Dislocation (bps)", tickformat=".1f", row=1, col=1)
+    fig.update_xaxes(title="Historical Timeline Axis", type='category', row=1, col=1)
+    fig.update_xaxes(title="Frequency Count", tickformat="d", row=1, col=2)
     
-    fig.add_trace(go.Scatter(
-        x=best_series.index, y=best_series.values * 10000, 
-        mode='lines+markers', line_shape='hv', 
-        line=dict(color='#ffc107', width=2.0),
-        marker=dict(size=5, symbol='square', color='#ffc107'),
-        name='Residual (bps)',
-        hovertemplate="Date: %{x}<br>Residual Dislocation: %{y:.2f} bps<extra></extra>"
-    ), row=1, col=1)
-    
-    fig.add_trace(go.Histogram(
-        x=best_series.values * 10000, nbinsx=10, 
-        marker_color='#0d6efd', name='Frequency'
-    ), row=1, col=2)
-    
-    std_dev_bps = best_series.std() * 10000
-    mean_bps = best_series.mean() * 10000
-    upper_tail = mean_bps + (2.00 * std_dev_bps)
-    lower_tail = mean_bps - (2.00 * std_dev_bps)
-    
-    fig.add_shape(type="line", x0=best_series.index, x1=best_series.index[-1], y0=upper_tail, y1=upper_tail, line=dict(color="#dc3545", width=1.5, dash="dash"), row=1, col=1)
-    fig.add_shape(type="line", x0=best_series.index, x1=best_series.index[-1], y0=lower_tail, y1=lower_tail, line=dict(color="#dc3545", width=1.5, dash="dash"), row=1, col=1)
-    
-    fig.update_layout(
-        template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False,
-        margin=dict(l=40, r=20, t=20, b=40)
-    )
-    
-    # ADD THESE EXPLICIT AXIS PROPERTY FORMAT LOCKS TO PURGE THE "f" TEXT HIGHLIGHTS:
-    fig.update_yaxes(title="Residual Dislocation (bps)", tickformat=".1f", gridcolor='#2d2d2d', row=1, col=1)
-    fig.update_xaxes(title="Historical Timeline Axis", type='category', gridcolor='#2d2d2d', row=1, col=1)
-    
-    fig.update_xaxes(title="Frequency Count", tickformat="d", gridcolor='#2d2d2d', row=1, col=2)
-    fig.update_yaxes(gridcolor='#2d2d2d', row=1, col=2)
-
-        # Front-Office Mapping Dictionary: Translates raw data keys into titles
-    column_formatting = {
-        'Structure': 'Structure Permutation',
-        'Hedge Ratio (Short)': 'Hedge Ratio (Short)',
-        'Hedge Ratio (Long)': 'Hedge Ratio (Long)',
-        'R-Squared': 'R-Squared (R²)',
-        'Current Residual (bps)': 'Current Residual (bps)',
-        '1Y Horizon Roll (bps)': '1Y Horizon Roll (bps)',
-        'Z-Score (Outlier)': 'Z-Score Rank'
-    }
-
-    table = dash_table.DataTable(
-        data=rank_df.to_dict('records'), 
-        columns=[{"name": column_formatting.get(i, i), "id": i} for i in rank_df.columns], 
-        sort_action="native", 
-        page_size=10, 
-        style_table={'overflowX': 'auto'}, 
-        style_header={'backgroundColor': '#212529', 'color': '#ffc107', 'fontWeight': 'bold'}, 
-        style_cell={'backgroundColor': '#1a1a1a', 'color': '#f8f9fa', 'textAlign': 'center', 'fontSize': '12px'},
-        style_data_conditional=[{
-            'if': {'filter_query': '{Z-Score (Outlier)} > 2.00 || {Z-Score (Outlier)} < -2.00'},
-            'backgroundColor': '#3a2512', 'color': '#ffc107', 'fontWeight': 'bold'
-        }]
-    )
-
+    column_formatting = {'Structure':'Structure Permutation', 'Hedge Ratio (Short)':'Hedge Ratio (Short)', 'Hedge Ratio (Long)':'Hedge Ratio (Long)', 'R-Squared':'R-Squared (R²)', 'Current Residual (bps)':'Current Residual (bps)', '1Y Horizon Roll (bps)':'1Y Horizon Roll (bps)', 'Z-Score (Outlier)':'Z-Score Rank'}
+    table = dash_table.DataTable(data=rank_df.to_dict('records'), columns=[{"name": column_formatting.get(i, i), "id": i} for i in rank_df.columns], sort_action="native", page_size=10, style_header={'backgroundColor': '#212529', 'color': '#ffc107', 'fontWeight': 'bold'}, style_cell={'backgroundColor': '#1a1a1a', 'color': '#f8f9fa', 'textAlign': 'center'})
     return fig, table
-
-# ==========================================
-# PART 7b: OPTIONS & VOLATILITY CALLBACK CORE
-# ==========================================
-# COMPARATIVE STOCHASTIC OPTIONS CALLBACK CORE
+# app.py - BLOCK 3: NON-LINEAR OPTIONS & CAPITAL ALLOCATION CALLBACK DESK
 
 @app.callback(
-    [Output('vol-smile-canvas', 'figure'), 
-     Output('vol-grid-canvas', 'figure'), 
-     Output('vol-matrix-container', 'children')],
-    [Input('vol-ccy-dropdown', 'value'),
-     Input('vol-date-dropdown', 'value'),
-     Input('vol-expiry-dropdown', 'value'),
-     Input('vol-tenor-dropdown', 'value'),
-     Input('vol-atm-input', 'value')]
+    [Output('vol-smile-canvas', 'figure'), Output('vol-grid-canvas', 'figure'), Output('vol-matrix-container', 'children')],
+    [Input('vol-ccy-dropdown', 'value'), Input('vol-date-dropdown', 'value'), Input('vol-expiry-dropdown', 'value'), Input('vol-tenor-dropdown', 'value'), Input('vol-atm-input', 'value')]
 )
 def process_volatility_pricing_matrix(selected_ccy, selected_date, expiry_T, tenor_m, atm_vol):
-    if not selected_date or selected_date == "Loading latest date matrix..." or atm_vol is None:
-        return go.Figure(), go.Figure(), html.Div("Awaiting target parameters...", className="text-muted p-2")
-        
-    from curves import BootstrappedDiscountCurve
-    from vol import Black76Engine
-    
+    if not selected_date or atm_vol is None: return go.Figure(), go.Figure(), html.Div("Awaiting target parameters...", className="text-muted p-2")
     ccy_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date_str'] == str(selected_date))].copy()
+    if ccy_df.empty: return go.Figure(), go.Figure(), html.Div("Data record empty.", className="text-danger p-2")
     
-    if ccy_df.empty:
-        return go.Figure(), go.Figure(), html.Div("Data matrix record empty.", className="text-danger p-2")
-        
-    tenor_label_map = {
-        0.25: '3M', 1.0: '1Y', 2.0: '2Y', 3.0: '3Y', 4.0: '4Y', 5.0: '5Y',
-        6.0: '6Y', 7.0: '7Y', 8.0: '8Y', 9.0: '9Y', 10.0: '10Y', 12.0: '12Y',
-        15.0: '15Y', 20.0: '20Y', 25.0: '25Y', 30.0: '30Y'
-    }
+    tenor_label_map = {0.25:'3M', 1.0:'1Y', 2.0:'2Y', 3.0:'3Y', 4.0:'4Y', 5.0:'5Y', 6.0:'6Y', 7.0:'7Y', 8.0:'8Y', 9.0:'9Y', 10.0:'10Y', 12.0:'12Y', 15.0:'15Y', 20.0:'20Y', 25.0:'25Y', 30.0:'30Y'}
     raw_spots = ccy_df.set_index('tenor')['rate'].to_dict()
     spot_rates_dict = {tenor_label_map[float(t)]: float(r) for t, r in raw_spots.items() if float(t) in tenor_label_map}
     
     curve = BootstrappedDiscountCurve(target_date=str(selected_date), spot_rates_dict=spot_rates_dict)
-    
-    p_start = curve.get_discount_factor(expiry_T)
-    p_end = curve.get_discount_factor(expiry_T + tenor_m)
+    p_start, p_end = curve.get_discount_factor(expiry_T), curve.get_discount_factor(expiry_T + tenor_m)
     annuity = curve.get_annuity_factor(start_n=expiry_T, tenor_m=tenor_m, payment_freq=1.0)
+    if annuity == 0.0: return go.Figure(), go.Figure(), html.Div("Annuity collapse.", className="text-danger p-2")
     
-    if annuity == 0.0:
-        return go.Figure(), go.Figure(), html.Div("Annuity collapse.", className="text-danger p-2")
-        
     forward_swap = ((p_start - p_end) / annuity) * 100.0
-    
-    # 1. Generate comparative curves out of vol.py
     strikes_dict, quad_vols, sabr_vols = Black76Engine.generate_sabr_vs_quadratic_smiles(forward_swap, float(atm_vol), float(expiry_T))
     
-    table_records = []
-    smile_strikes = []
-    smile_quad_y = []
-    smile_sabr_y = []
-    
-    offsets_labels = ["-200bps", "-100bps", "-50bps", "ATM", "+50bps", "+100bps", "+200bps"]
-    
-    for label in offsets_labels:
-        K = strikes_dict[label]   
-        v_sabr = sabr_vols[label]
-        
-        smile_strikes.append(K * 100.0) 
+    table_records, smile_strikes, smile_quad_y, smile_sabr_y = [], [], [], []
+    for label in ["-200bps", "-100bps", "-50bps", "ATM", "+50bps", "+100bps", "+200bps"]:
+        K, v_sabr = strikes_dict[label], sabr_vols[label]
+        smile_strikes.append(K * 100.0)
         smile_quad_y.append(quad_vols[label] * 100.0)
         smile_sabr_y.append(v_sabr * 100.0)
-        
-        fwd_dec = forward_swap / 100.0
-        # Use premium calibration calculated strictly via stochastic SABR weights
-        call_premium = Black76Engine.calculate_swaption_price(fwd_dec, K, annuity, v_sabr, expiry_T, option_type='CALL')
-        put_premium = Black76Engine.calculate_swaption_price(fwd_dec, K, annuity, v_sabr, expiry_T, option_type='PUT')
-        
-        table_records.append({
-            'Strike Offset': label,
-            'Absolute Strike (%)': round(K * 100.0, 3),
-            'SABR Implied Vol (%)': round(v_sabr * 100.0, 2),
-            'Call Premium (bps)': round(call_premium * 10000.0, 1),
-            'Put Premium (bps)': round(put_premium * 10000.0, 1)
-        })
-        
-    # 2. Draw Comparative Smile Chart Canvas
+        call_prem = Black76Engine.calculate_swaption_price(forward_swap/100.0, K, annuity, v_sabr, expiry_T, option_type='CALL')
+        put_prem = Black76Engine.calculate_swaption_price(forward_swap/100.0, K, annuity, v_sabr, expiry_T, option_type='PUT')
+        table_records.append({'Strike Offset': label, 'Absolute Strike (%)': round(K * 100.0, 3), 'SABR Implied Vol (%)': round(v_sabr * 100.0, 2), 'Call Premium (bps)': round(call_prem * 10000.0, 1), 'Put Premium (bps)': round(put_prem * 10000.0, 1)})
+    
     smile_fig = go.Figure()
-    smile_fig.add_trace(go.Scatter(
-        x=smile_strikes, y=smile_quad_y, mode='lines',
-        line=dict(color='#ffc107', width=2, dash='dash'), name='Quadratic Model'
-    ))
-    smile_fig.add_trace(go.Scatter(
-        x=smile_strikes, y=smile_sabr_y, mode='lines+markers',
-        line=dict(color='#0d6efd', width=3.5, shape='spline'),
-        marker=dict(size=6, color='#0d6efd'), name='Stochastic SABR Model'
-    ))
-    smile_fig.update_layout(
-        title=dict(text=f"Stochastic SABR vs Parametric Skew (ATM Forward = {forward_swap:.3f}%)", font=dict(color='#ffc107', size=12)),
-        template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(l=40, r=20, t=50, b=40),
-        xaxis=dict(title="Strike rate (%)", gridcolor='#2d2d2d'),
-        yaxis=dict(title="Implied Volatility (%)", gridcolor='#2d2d2d')
-    )
+    smile_fig.add_trace(go.Scatter(x=smile_strikes, y=smile_quad_y, mode='lines', line=dict(color='#ffc107', width=2, dash='dash'), name='Quadratic'))
+    smile_fig.add_trace(go.Scatter(x=smile_strikes, y=smile_sabr_y, mode='lines+markers', line=dict(color='#0d6efd', width=3.5, shape='spline'), name='SABR'))
+    smile_fig.update_layout(title=dict(text=f"SABR vs Parametric Skew (ATM = {forward_swap:.3f}%)", font=dict(size=12)), template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     
-    # 3. Draw institutional 3D surface term grid heatmap matrix canvas
     vol_matrix_df = Black76Engine.generate_volatility_term_structure_grid(float(atm_vol))
-    grid_fig = go.Figure(data=go.Heatmap(
-        z=vol_matrix_df.values, x=vol_matrix_df.columns, y=vol_matrix_df.index,
-        colorscale='Viridis', text=vol_matrix_df.values, texttemplate="%{text}%",
-        hovertemplate="Expiry: %{y}<br>Underlying: %{x}<br>Vol: %{z}%<extra></extra>"
-    ))
-    grid_fig.update_layout(
-        title=dict(text="Institutional 3D Volatility Term Grid Surface Heatmap (%)", font=dict(color='#ffc107', size=12)),
-        template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=40, r=20, t=50, b=40),
-        xaxis=dict(title="Underlying Swap Maturity length"),
-        yaxis=dict(title="Swaption Expiry Horizon")
-    )
+    grid_fig = go.Figure(data=go.Heatmap(z=vol_matrix_df.values, x=vol_matrix_df.columns, y=vol_matrix_df.index, colorscale='Viridis'))
+    grid_fig.update_layout(title=dict(text="Institutional 3D Volatility Surface Heatmap", font=dict(size=12)), template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     
-    # 4. Compile DataTable data grid columns list
-    table_cols = [
-        {"name": "Strike Offset Label", "id": "Strike Offset"},
-        {"name": "Absolute Strike Rate (%)", "id": "Absolute Strike (%)"},
-        {"name": "SABR Implied Volatility (%)", "id": "SABR Implied Vol (%)"},
-        {"name": "Call Premium (bps)", "id": "Call Premium (bps)"},
-        {"name": "Put Premium (bps)", "id": "Put Premium (bps)"}
-    ]
-    
-    table_grid = dash_table.DataTable(
-        data=table_records, columns=table_cols,
-        style_table={'overflowX': 'auto'},
-        style_header={'backgroundColor': '#212529', 'color': '#ffc107', 'fontWeight': 'bold'},
-        style_cell={'backgroundColor': '#1a1a1a', 'color': '#f8f9fa', 'textAlign': 'center', 'fontSize': '12px'},
-        style_data_conditional=[{
-            'if': {'row_index': 3},
-            'backgroundColor': '#1b2a4a', 'color': '#ffc107', 'fontWeight': 'bold'
-        }]
-    )
-    
+    table_cols = [{"name": i, "id": i} for i in ['Strike Offset', 'Absolute Strike (%)', 'SABR Implied Vol (%)', 'Call Premium (bps)', 'Put Premium (bps)']]
+    table_grid = dash_table.DataTable(data=table_records, columns=table_cols, style_header={'backgroundColor': '#212529', 'color': '#ffc107'}, style_cell={'backgroundColor': '#1a1a1a', 'color': '#f8f9fa'})
     return smile_fig, grid_fig, table_grid
 
-# ==========================================
-# PART 8: SYSTEM ROUTING & ARCHITECTURE CORE
-# ==========================================
 
-@app.callback(Output('page-content', 'children'), Input('url', 'pathname'))
-def display_page(pathname):
-    if pathname == '/page-scanner':
-        return layout_scanner()
-    elif pathname == '/page-volatility':
-        # Safely calls your clean modular layout file passing index arrays
-        return layout_volatility(currencies, all_dates)
-    return layout_diagnostics()
-
-def serve_layout():
-    return html.Div([
-        dcc.Location(id='url', refresh=False),
-        navbar,
-        dbc.Container(id='page-content', fluid=True)
-    ])
-
-app.layout = serve_layout
-app.config.suppress_callback_exceptions = True
+# PART 7c: ASYNCHRONOUSLY STABILIZED FRONT-OFFICE EXECUTION DESK CALLBACK
+@app.callback(
+    [Output('exec-carry-history-canvas', 'figure'), Output('exec-notional-container', 'children')],
+    [Input('run-exec-btn', 'n_clicks')],
+    [State('exec-ccy-dropdown', 'value'), State('exec-struct-string', 'value'), 
+     State('exec-risk-input', 'value'), State('exec-ratio-short', 'value'), State('exec-ratio-long', 'value')]
+)
+def process_trade_notional_optimization(n_clicks, selected_ccy, structure_string, risk_amount, r_short, r_long):
+    # Asynchronous Shield Gate: Preserves virtual DOM layout components on startup
+    if n_clicks is None or n_clicks == 0:
+        return go.Figure(), html.Div("Configure trade risk parameters on the left panel and click 'Optimize Execution Notional'.", className="text-muted text-center p-3")
+        
+    if risk_amount is None or not structure_string or r_short is None or r_long is None:
+        return go.Figure(), html.Div("Target variables or weight ratio entries missing.", className="text-warning text-center p-3")
+        
+    f_matrix = an.build_forward_permutation_matrix(master_df, selected_ccy=selected_ccy)
+    
+    try:
+        short_leg, mid_leg, long_leg = "1F1Y", "2F1Y", "3F1Y"
+        validated_risk = float(risk_amount)
+        
+        # Pull clean rounded clips out of upgraded execution engine
+        res_dict = ExecutionOptimizer.calculate_duration_neutral_notionals(validated_risk, r_short, r_long, structure_type='FLY')
+        fig_carry = ExecutionOptimizer.generate_historical_carry_chart(f_matrix, short_leg, mid_leg, long_leg, float(r_short), float(r_long))
+        
+        # Formulate highly explicit interbank buy/sell routing layouts
+        output_display = html.Div([
+            dbc.Row([
+                dbc.Col([
+                    html.Div([
+                        html.Span("🔴 " + res_dict['Short Wing Action'], className="badge bg-danger mb-2 d-block text-start fs-6"),
+                        html.Strong("Size: "), html.Span(f"${res_dict['Short Wing Notional']:,}", className="text-warning float-end")
+                    ], className="p-3 bg-opacity-10 bg-danger rounded border border-danger")
+                ], width=4),
+                dbc.Col([
+                    html.Div([
+                        html.Span("🟢 " + res_dict['Belly Action'], className="badge bg-success mb-2 d-block text-start fs-6"),
+                        html.Strong("Size: "), html.Span(f"${res_dict['Belly Notional']:,}", className="text-warning float-end")
+                    ], className="p-3 bg-opacity-10 bg-success rounded border border-success")
+                ], width=4),
+                dbc.Col([
+                    html.Div([
+                        html.Span("🔴 " + res_dict['Long Wing Action'], className="badge bg-danger mb-2 d-block text-start fs-6"),
+                        html.Strong("Size: "), html.Span(f"${res_dict['Long Wing Notional']:,}", className="text-warning float-end")
+                    ], className="p-3 bg-opacity-10 bg-danger rounded border border-danger")
+                ], width=4)
+            ], className="mb-3 g-3"),
+            html.Hr(className="border-secondary"),
+            html.Div([
+                html.Strong("Total Combined Execution Volume: "),
+                html.Span(f"${res_dict['Total Structure Notional']:,}", className="text-info fw-bold fs-5 float-end")
+            ])
+        ])
+        return fig_carry, output_display
+    except Exception as e:
+        return go.Figure(), html.Div(f"Structural formatting mismatch error: {str(e)}", className="text-danger p-2")
 
 if __name__ == '__main__':
     app.run(debug=True)
