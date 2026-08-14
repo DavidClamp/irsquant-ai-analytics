@@ -13,11 +13,6 @@ from curves import BootstrappedDiscountCurve
 from vol import Black76Engine
 from execution import ExecutionOptimizer
 
-# Ingest your decoupled front-end layout presentation pack blueprints
-from layouts.diagnostics import layout_diagnostics
-from layouts.scanner import layout_scanner
-from layouts.volatility import layout_volatility
-from layouts.execution import layout_execution
 
 # Pull all presentation layout package blueprints cleanly out of your verified __init__.py index
 from layouts import layout_diagnostics, layout_scanner, layout_volatility, layout_execution
@@ -63,6 +58,7 @@ app.layout = html.Div([
 # URL INTERFACE CONTROLLER ROUTER MATRIX
 # ==========================================
 @app.callback(Output('page-content', 'children'), Input('url', 'pathname'))
+
 def display_page(pathname):
     if pathname == '/page-scanner':
         return layout_scanner(currencies)
@@ -177,8 +173,9 @@ def process_volatility_pricing_matrix(selected_ccy, selected_date, expiry_T, ten
     table_grid = dash_table.DataTable(data=table_records, columns=table_cols, style_header={'backgroundColor': '#212529', 'color': '#ffc107'}, style_cell={'backgroundColor': '#1a1a1a', 'color': '#f8f9fa'})
     return smile_fig, grid_fig, table_grid
 
-
-# PART 7c: ASYNCHRONOUSLY STABILIZED FRONT-OFFICE EXECUTION DESK CALLBACK
+# ==========================================
+# PART 7c: PRODUCTION-READY INTERBANK SWAP NOTIONAL EXECUTION DESK CALLBACK
+# ==========================================
 @app.callback(
     [Output('exec-carry-history-canvas', 'figure'), Output('exec-notional-container', 'children')],
     [Input('run-exec-btn', 'n_clicks')],
@@ -186,54 +183,71 @@ def process_volatility_pricing_matrix(selected_ccy, selected_date, expiry_T, ten
      State('exec-risk-input', 'value'), State('exec-ratio-short', 'value'), State('exec-ratio-long', 'value')]
 )
 def process_trade_notional_optimization(n_clicks, selected_ccy, structure_string, risk_amount, r_short, r_long):
-    # Asynchronous Shield Gate: Preserves virtual DOM layout components on startup
     if n_clicks is None or n_clicks == 0:
-        return go.Figure(), html.Div("Configure trade risk parameters on the left panel and click 'Optimize Execution Notional'.", className="text-muted text-center p-3")
+        return go.Figure(), html.Div("Configure risk parameters on the left panel (e.g. enter 5000 or 10000 for PVBP) and click 'Optimize Execution Notional'.", className="text-muted text-center p-3")
         
     if risk_amount is None or not structure_string or r_short is None or r_long is None:
         return go.Figure(), html.Div("Target variables or weight ratio entries missing.", className="text-warning text-center p-3")
         
     f_matrix = an.build_forward_permutation_matrix(master_df, selected_ccy=selected_ccy)
     
+    # Isolate your target day's active bootstrapped yield curve
+    latest_date = master_df[master_df['currency'] == selected_ccy]['date_str'].max()
+    day_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date_str'] == latest_date)].copy()
+    
+    tenor_label_map = {0.25:'3M', 1.0:'1Y', 2.0:'2Y', 3.0:'3Y', 4.0:'4Y', 5.0:'5Y', 6.0:'6Y', 7.0:'7Y', 8.0:'8Y', 9.0:'9Y', 10.0:'10Y', 12.0:'12Y', 15.0:'15Y', 20.0:'20Y', 25.0:'25Y', 30.0:'30Y'}
+    raw_spots = day_df.set_index('tenor')['rate'].to_dict()
+    spot_rates_dict = {tenor_label_map[float(t)]: float(r) for t, r in raw_spots.items() if float(t) in tenor_label_map}
+    curve_obj = BootstrappedDiscountCurve(target_date=str(latest_date), spot_rates_dict=spot_rates_dict)
+    
     try:
         short_leg, mid_leg, long_leg = "1F1Y", "2F1Y", "3F1Y"
-        validated_risk = float(risk_amount)
         
-        # Pull clean rounded clips out of upgraded execution engine
-        res_dict = ExecutionOptimizer.calculate_duration_neutral_notionals(validated_risk, r_short, r_long, structure_type='FLY')
+        # Process the target risk allocation into physical interbank swap lot metrics
+        ticket = ExecutionOptimizer.calculate_front_office_ticket(curve_obj, risk_amount, short_leg, mid_leg, long_leg, r_short, r_long)
         fig_carry = ExecutionOptimizer.generate_historical_carry_chart(f_matrix, short_leg, mid_leg, long_leg, float(r_short), float(r_long))
         
-        # Formulate highly explicit interbank buy/sell routing layouts
         output_display = html.Div([
+            # Net Structural Spread Valuation Banner
+            html.Div([
+                html.H5([
+                    html.Span("📋 Net Structured Butterfly Position Spread: ", className="text-light"),
+                    html.Span(f"{ticket['net_spread_bps']:.2f} bps", className="text-info fw-bold")
+                ], className="mb-0 text-center")
+            ], className="p-3 bg-dark border border-secondary rounded mb-4"),
+            
+            # Actionable Front Office Swap Execution Lot Cards
             dbc.Row([
                 dbc.Col([
                     html.Div([
-                        html.Span("🔴 " + res_dict['Short Wing Action'], className="badge bg-danger mb-2 d-block text-start fs-6"),
-                        html.Strong("Size: "), html.Span(f"${res_dict['Short Wing Notional']:,}", className="text-warning float-end")
+                        html.Span("🔴 PAY FIXED (Short Leg)", className="badge bg-danger mb-2 d-block text-start fs-6"),
+                        html.Div([html.Strong("Contract Handle: "), html.Span(f"{short_leg}", className="float-end text-light")]),
+                        html.Div([html.Strong("Notional Size: "), html.Span(f"${ticket['notional_short_mm']:.2f}M", className="float-end text-warning")]),
+                        html.Div([html.Strong("Forward Swap Rate: "), html.Span(f"{ticket['rate_short']:.3f}%", className="float-end text-info")])
                     ], className="p-3 bg-opacity-10 bg-danger rounded border border-danger")
                 ], width=4),
                 dbc.Col([
                     html.Div([
-                        html.Span("🟢 " + res_dict['Belly Action'], className="badge bg-success mb-2 d-block text-start fs-6"),
-                        html.Strong("Size: "), html.Span(f"${res_dict['Belly Notional']:,}", className="text-warning float-end")
+                        html.Span("🟢 RECEIVE FIXED (Belly Core)", className="badge bg-success mb-2 d-block text-start fs-6"),
+                        html.Div([html.Strong("Contract Handle: "), html.Span(f"{mid_leg}", className="float-end text-light")]),
+                        html.Div([html.Strong("Notional Size: "), html.Span(f"${ticket['notional_mid_mm']:.2f}M", className="float-end text-warning")]),
+                        html.Div([html.Strong("Forward Swap Rate: "), html.Span(f"{ticket['rate_mid']:.3f}%", className="float-end text-info")])
                     ], className="p-3 bg-opacity-10 bg-success rounded border border-success")
                 ], width=4),
                 dbc.Col([
                     html.Div([
-                        html.Span("🔴 " + res_dict['Long Wing Action'], className="badge bg-danger mb-2 d-block text-start fs-6"),
-                        html.Strong("Size: "), html.Span(f"${res_dict['Long Wing Notional']:,}", className="text-warning float-end")
+                        html.Span("🔴 PAY FIXED (Long Leg)", className="badge bg-danger mb-2 d-block text-start fs-6"),
+                        html.Div([html.Strong("Contract Handle: "), html.Span(f"{long_leg}", className="float-end text-light")]),
+                        html.Div([html.Strong("Notional Size: "), html.Span(f"${ticket['notional_long_mm']:.2f}M", className="float-end text-warning")]),
+                        html.Div([html.Strong("Forward Swap Rate: "), html.Span(f"{ticket['rate_long']:.3f}%", className="float-end text-info")])
                     ], className="p-3 bg-opacity-10 bg-danger rounded border border-danger")
                 ], width=4)
-            ], className="mb-3 g-3"),
-            html.Hr(className="border-secondary"),
-            html.Div([
-                html.Strong("Total Combined Execution Volume: "),
-                html.Span(f"${res_dict['Total Structure Notional']:,}", className="text-info fw-bold fs-5 float-end")
-            ])
+            ], className="mb-3 g-3")
         ])
         return fig_carry, output_display
     except Exception as e:
-        return go.Figure(), html.Div(f"Structural formatting mismatch error: {str(e)}", className="text-danger p-2")
+        return go.Figure(), html.Div(f"Execution pricing mismatch break: {str(e)}", className="text-danger p-2")
+
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -26,17 +26,18 @@ def layout_execution(currencies):
                     dcc.Input(id='exec-risk-input', type='number', value=10000000, step=1, className="form-control text-dark mb-4"),
                     
                     # NEW EXECUTION DESK RATIO SLIDERS / INPUT CONTROLS:
-                    html.Row([
-                        html.Col([
+                                        # FIXED: Changed both html.Col targets to dbc.Col to support grid widths cleanly
+                    dbc.Row([
+                        dbc.Col([
                             html.Label("Left Wing Weight:", className="text-light small fw-bold"),
                             dcc.Input(id='exec-ratio-short', type='number', value=0.5, step=0.05, className="form-control text-dark")
                         ], width=6),
-                        html.Col([
+                        dbc.Col([
                             html.Label("Right Wing Weight:", className="text-light small fw-bold"),
                             dcc.Input(id='exec-ratio-long', type='number', value=0.5, step=0.05, className="form-control text-dark")
                         ], width=6)
                     ], className="mb-4"),
-                    
+
                     dbc.Button("Optimize Execution Notional", id='run-exec-btn', n_clicks=0, color="warning", className="w-100 fw-bold")
                 ], className="p-3 bg-dark border border-secondary rounded mb-4")
             ], width=3),
