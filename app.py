@@ -20,7 +20,7 @@ from layouts.volatility import layout_volatility
 from layouts.execution import layout_execution
 
 # Pull all presentation layout package blueprints cleanly out of your verified __init__.py index
-#from layouts import layout_diagnostics, layout_scanner, layout_volatility, layout_execution
+from layouts import layout_diagnostics, layout_scanner, layout_volatility, layout_execution
 # ==========================================
 # DATA INGESTION & DATA ARCHITECTURE REGIME
 # ==========================================
