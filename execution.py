@@ -1,4 +1,4 @@
-# execution.py - FRONT OFFICE PRINCIPAL SIZING ENGINE
+# execution.py - PURE FRONT OFFICE PRINCIPAL SIZING CORE
 import plotly.graph_objects as go
 import numpy as np
 
@@ -79,12 +79,5 @@ class ExecutionOptimizer:
             current_index = f_matrix_df.index
 
         fig.add_trace(go.Scatter(x=current_index, y=current_vals, mode='lines+markers', name='Current Spread History', line=dict(color='#ffc107', width=2.5)))
-        
-        fig.update_layout(
-            title=dict(text="Historical Carry Timeline: Structure Dislocation (bps)", font=dict(color='#ffc107', size=13)),
-            template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=45, r=20, t=55, b=40),
-            xaxis=dict(title="Historical Timeline Axis", type='category', gridcolor='#2d2d2d'),
-            yaxis=dict(title="Structure Dislocation Yield (bps)", gridcolor='#2d2d2d')
-        )
+        fig.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=45, r=20, t=20, b=40))
         return fig

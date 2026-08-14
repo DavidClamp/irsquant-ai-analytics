@@ -89,11 +89,18 @@ def render_snapshot_curves(selected_ccy, selected_date):
     
     fig_line = go.Figure()
     tenors = sorted(list(curve.spot_rates.keys()), key=lambda x: float(x.replace('M', ''))/12 if 'M' in x else float(x.replace('Y', '')))
-    rates = [curve.spot_rates[t]*100 for t in tenors]
+    rates = [curve.spot_rates[t] for t in tenors]
     
     fig_line.add_trace(go.Scatter(x=tenors, y=rates, mode='lines+markers', line_shape='hv', line=dict(color='#ffc107', width=3)))
-    fig_line.update_layout(title=f"Discrete Step Forward Snapshots - {selected_ccy} ({selected_date})", template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-    
+    fig_line.update_layout(
+        title=f"Discrete Step Forward Snapshots - {selected_ccy} ({selected_date})", 
+        template='plotly_dark', 
+        paper_bgcolor='rgba(0,0,0,0)', 
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    fig_line.update_yaxes(title="Yield Rate (%)", tickformat="", gridcolor='#2d2d2d')
+    fig_line.update_xaxes(title="Maturity Tenor Horizon", gridcolor='#2d2d2d')
+
     grid_df = an.generate_forward_block_matrix(curve)
     fig_heat = go.Figure(data=go.Heatmap(z=grid_df.values, x=grid_df.columns, y=grid_df.index, colorscale='Cividis'))
     fig_heat.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
@@ -191,7 +198,6 @@ def process_trade_notional_optimization(n_clicks, selected_ccy, structure_string
         
     f_matrix = an.build_forward_permutation_matrix(master_df, selected_ccy=selected_ccy)
     
-    # Isolate your target day's active bootstrapped yield curve
     latest_date = master_df[master_df['currency'] == selected_ccy]['date_str'].max()
     day_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date_str'] == latest_date)].copy()
     
@@ -203,12 +209,10 @@ def process_trade_notional_optimization(n_clicks, selected_ccy, structure_string
     try:
         short_leg, mid_leg, long_leg = "1F1Y", "2F1Y", "3F1Y"
         
-        # Process the target risk allocation into physical interbank swap lot metrics
         ticket = ExecutionOptimizer.calculate_front_office_ticket(curve_obj, risk_amount, short_leg, mid_leg, long_leg, r_short, r_long)
         fig_carry = ExecutionOptimizer.generate_historical_carry_chart(f_matrix, short_leg, mid_leg, long_leg, float(r_short), float(r_long))
         
         output_display = html.Div([
-            # Net Structural Spread Valuation Banner
             html.Div([
                 html.H5([
                     html.Span("📋 Net Structured Butterfly Position Spread: ", className="text-light"),
@@ -216,7 +220,6 @@ def process_trade_notional_optimization(n_clicks, selected_ccy, structure_string
                 ], className="mb-0 text-center")
             ], className="p-3 bg-dark border border-secondary rounded mb-4"),
             
-            # Actionable Front Office Swap Execution Lot Cards
             dbc.Row([
                 dbc.Col([
                     html.Div([
@@ -247,7 +250,6 @@ def process_trade_notional_optimization(n_clicks, selected_ccy, structure_string
         return fig_carry, output_display
     except Exception as e:
         return go.Figure(), html.Div(f"Execution pricing mismatch break: {str(e)}", className="text-danger p-2")
-
 
 if __name__ == '__main__':
     app.run(debug=True)
