@@ -13,9 +13,11 @@ from curves import BootstrappedDiscountCurve
 from vol import Black76Engine
 from execution import ExecutionOptimizer
 
-
+import curves as curves_module
 # Pull all presentation layout package blueprints cleanly out of your verified __init__.py index
 from layouts import layout_diagnostics, layout_scanner, layout_volatility, layout_execution
+from layouts.volatility_callbacks import register_volatility_callbacks
+
 # ==========================================
 # DATA INGESTION & DATA ARCHITECTURE REGIME
 # ==========================================
@@ -250,6 +252,10 @@ def process_trade_notional_optimization(n_clicks, selected_ccy, structure_string
         return fig_carry, output_display
     except Exception as e:
         return go.Figure(), html.Div(f"Execution pricing mismatch break: {str(e)}", className="text-danger p-2")
+    
+# Initialize and register the decoupled option volatility metrics engine
+register_volatility_callbacks(app, master_df, curves_module)
+
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -1,121 +1,99 @@
-# vol.py - UPGRADED CALIBRATED STOCHASTIC VOLATILITY ENGINE
+# vol.py - INSTITUTIONAL PARALLEL SABR SOLVER & GREEKS ENGINE
 import numpy as np
-import pandas as pd
+from scipy.optimize import least_squares
 from scipy.stats import norm
 
 class Black76Engine:
-    """
-    Layer 3: Non-Linear Options Pricing Core.
-    Implements Black '76 formulas alongside Hagan's analytic SABR model approximation.
-    Consolidated and optimized under a single static namespace layout.
-    """
+    """Calculates analytic European Swaption premiums and risk sensitivities."""
+    
     @staticmethod
-    def calculate_swaption_price(forward_swap, strike, annuity, vol, expiry_T, option_type='CALL'):
-        if expiry_T <= 0 or vol <= 0:
-            return max(0.0, (forward_swap - strike) * annuity if option_type == 'CALL' else (strike - forward_swap) * annuity)
-            
-        d1 = (np.log(forward_swap / strike) + 0.5 * (vol ** 2) * expiry_T) / (vol * np.sqrt(expiry_T))
-        d2 = d1 - vol * np.sqrt(expiry_T)
+    def calculate_premium(fwd_rate, strike, expiry, vol_pct, discount_factor, annuity_factor, option_type='RECEIVER'):
+        t = max(float(expiry), 1e-6)
+        sigma = max(float(vol_pct) / 100.0, 1e-6)
+        f = max(float(fwd_rate) / 100.0, 1e-6)
+        k = max(float(strike) / 100.0, 1e-6)
+        df = float(discount_factor)
+        a_0 = float(annuity_factor)
         
-        if option_type == 'CALL':
-            return annuity * (forward_swap * norm.cdf(d1) - strike * norm.cdf(d2))
-        return annuity * (strike * norm.cdf(-d2) - forward_swap * norm.cdf(-d1))
+        d1 = (np.log(f / k) + 0.5 * (sigma ** 2) * t) / (sigma * np.sqrt(t))
+        d2 = d1 - sigma * np.sqrt(t)
+        
+        if option_type.upper() == 'RECEIVER':
+            # Put option analogue for downward curve protection
+            underyling_val = k * norm.cdf(-d2) - f * norm.cdf(-d1)
+            premium = a_0 * underyling_val
+            delta = -a_0 * norm.cdf(-d1)
+        else:
+            # Payer option analogue for upward curve shorts
+            underyling_val = f * norm.cdf(d1) - k * norm.cdf(d2)
+            premium = a_0 * underyling_val
+            delta = a_0 * norm.cdf(d1)
+            
+        vega = a_0 * f * np.sqrt(t) * norm.pdf(d1) * 0.01  # Normalized per 1% vol shift
+        return {
+            'premium': round(premium * 1000000, 2),  # Scaled to millions standard
+            'delta_pvbp': round(delta, 4),
+            'vega_dollar': round(vega * 10000, 2)
+        }
+
+class SABRCalibrator:
+    """Calibrates Hagan SABR surfaces directly to extracted interbank JSON feeds."""
+    
+    @staticmethod
+    def modified_hagan_vol(f, k, t, alpha, beta, rho, nu):
+        f = max(f, 1e-6)
+        k = max(k, 1e-6)
+        if abs(f - k) < 1e-5:
+            # At-The-Money (ATM) structural analytic simplification
+            f_mid = f ** (1.0 - beta)
+            i1 = ((1.0 - beta) ** 2 / 24.0) * (alpha ** 2 / f_mid)
+            i2 = 0.25 * (rho * beta * nu * alpha) / (f_mid ** 0.5)
+            i3 = ((2.0 - 3.0 * rho ** 2) / 24.0) * (nu ** 2)
+            return (alpha / f_mid) * (1.0 + (i1 + i2 + i3) * t) * 100.0
+        else:
+            # Out-Of-The-Money (OTM) skew transformation loop
+            log_fk = np.log(f / k)
+            f_mid = (f * k) ** (0.5 * (1.0 - beta))
+            z = (nu / alpha) * f_mid * log_fk
+            x_z = np.log((np.sqrt(1.0 - 2.0 * rho * z + z ** 2) + z - rho) / (1.0 - rho))
+            
+            num = alpha * (1.0 + (((1.0 - beta) ** 2 / 24.0) * (alpha ** 2 / f_mid ** 2) + 
+                                  (0.25 * rho * beta * nu * alpha / f_mid) + 
+                                  ((2.0 - 3.0 * rho ** 2) / 24.0 * nu ** 2)) * t)
+            den = f_mid * (1.0 + ((1.0 - beta) ** 2 / 24.0) * log_fk ** 2 + 
+                           ((1.0 - beta) ** 4 / 1920.0) * log_fk ** 4)
+            
+            if abs(x_z) > 1e-5:
+                return (num / den) * (z / x_z) * 100.0
+            return (num / den) * 100.0
 
     @staticmethod
-    def calculate_hagan_sabr_vol(F, K, expiry_T, alpha, beta, rho, nu):
-        """
-        Implements Hagan's analytic approximation for log-normal SABR implied volatility.
-        Stabilized: Handles percentage-space variables to eliminate central node spikes.
-        """
-        if F <= 0 or K <= 0 or expiry_T <= 0:
-            return alpha
-            
-        # Handle the exact ATM boundary condition using percentage space parameters
-        if abs(F - K) < 1e-4:
-            f_K = F ** (beta - 1.0)
-            I0 = alpha * f_K
-            I1 = ((1.0 - beta) ** 2 / 24.0 * alpha ** 2 / (F ** (2.0 - 2.0 * beta)) + 
-                  0.25 * rho * beta * alpha * nu / (F ** (1.0 - beta)) + 
-                  (2.0 - 3.0 * rho ** 2) / 24.0 * nu ** 2)
-            # Re-scale to match your baseline log-normal input dimension (atm_vol)
-            return (I0 * (1.0 + I1 * expiry_T)) / F
-            
-        # General out-of-the-money (OTM) calculation loop path
-        log_f_K = np.log(F / K)
-        f_K = (F * K) ** (0.5 * (beta - 1.0))
-        x = (nu / alpha) * f_K * log_f_K
+    def calibrate_node_parameters(fwd_rate, strikes, market_vols, expiry_years):
+        """Runs a non-linear optimizer to fit alpha, rho, and nu to market data points."""
+        f = float(fwd_rate) / 100.0
+        t = max(float(expiry_years), 1e-2)
+        ks = np.array(strikes) / 100.0
+        vols = np.array(market_vols)
         
-        # Calculate Hagan's auxiliary Z-parameter value block
-        zeta = (nu / alpha) * ((F * K) ** (0.5 * (1.0 - beta))) * log_f_K
+        # Fixed institutional beta backbone assumption (0.50 handles standard linear dynamics)
+        beta = 0.50
         
-        # Map out market tail coordinates safely
-        denominator = f_K * (1.0 + (log_f_K ** 2) / 24.0 * (1.0 - beta) ** 2 + (log_f_K ** 4) / 1920.0 * (1.0 - beta) ** 4)
-        
-        # Calculate the stochastic vol backbone geometry layer
-        numerator_term = 1.0 + (((1.0 - beta) ** 2 / 24.0) * (alpha ** 2 / ((F * K) ** (1.0 - beta))) + 
-                                (0.25 * rho * beta * nu * alpha / f_K) + 
-                                ((2.0 - 3.0 * rho ** 2) / 24.0) * (nu ** 2)) * expiry_T
-                                
-        if abs(x) < 1e-5:
-            return (alpha / denominator) * numerator_term
+        def residual_cost_function(params):
+            alpha, rho, nu = params
+            if not (-0.99 < rho < 0.99) or alpha <= 0 or nu <= 0:
+                return np.ones_like(vols) * 1e6
             
-        fx = np.log((np.sqrt(1.0 - 2.0 * rho * zeta + zeta ** 2) + zeta - rho) / (1.0 - rho))
-        return (alpha / denominator) * (zeta / fx) * numerator_term
+            simulated_vols = np.array([
+                SABRCalibrator.modified_hagan_vol(f, k, t, alpha, beta, rho, nu) for k in ks
+            ])
+            return simulated_vols - vols
 
-    @staticmethod
-    def generate_sabr_vs_quadratic_smiles(forward_swap, atm_vol, expiry_T):
-        """
-        Generates side-by-side comparative volatility curves: Parametric vs Stochastic (SABR).
-        Calibrated: Operates strictly in absolute decimal space to ensure smooth smile skew geometry.
-        """
-        strike_offsets = np.array([-200, -100, -50, 0, 50, 100, 200]) / 10000.0
-        # Strikes are maintained as clean mathematical decimal coordinates (e.g. 0.04993)
-        strikes = (forward_swap / 100.0) + strike_offsets
-        fwd_dec = forward_swap / 100.0
+        # Initial starting guesses [Alpha, Rho, Nu]
+        initial_guess = [0.05, -0.20, 0.40]
+        bounds = ((1e-4, -0.99, 1e-4), (1.0, 0.99, 2.0))
         
-        # Standard G4 Volatility Backbone Calibration weights
-        beta = 0.50   # Log-normal to normal blending ratio marker
-        rho = -0.35   # Receiver risk premium tilt parameter
-        nu = 0.40     # Vol-of-vol curve curvature weight
-        
-        # CALIBRATION HARMONIZATION: Scale alpha uniformly into absolute decimal coordinate space
-        alpha = atm_vol * (fwd_dec) ** (1.0 - beta)
-        
-        quad_vols = []
-        sabr_vols = []
-
-        for K in strikes:
-            dK = K - fwd_dec
-            # 1. Quadratic Polynomial Loop Path
-            quad_vols.append(max(0.01, atm_vol + (-0.05) * dK + 0.15 * (dK ** 2)))
-            
-            # 2. Stochastic SABR Loop Path (Scale F and K to percentages to stabilize coordinates)
-            sabr_vols.append(max(0.01, Black76Engine.calculate_hagan_sabr_vol(forward_swap, K * 100.0, expiry_T, alpha, beta, rho, nu)))
-            
-        labels = ["-200bps", "-100bps", "-50bps", "ATM", "+50bps", "+100bps", "+200bps"]
-        return dict(zip(labels, strikes)), dict(zip(labels, quad_vols)), dict(zip(labels, sabr_vols))
-
-    @staticmethod
-    def generate_volatility_term_structure_grid(atm_vol):
-        """
-        Generates an institutional 3D Volatility Term Structure Surface Grid Matrix.
-        Maps Liquid Option Expiries (Rows) vs Underlying Forward Swap Lengths (Columns).
-        """
-        expiries = ["3M", "6M", "1Y", "2Y", "5Y", "10Y"]
-        tenors = ["1Y", "2Y", "3Y", "5Y", "10Y"]
-        
-        grid_df = pd.DataFrame(index=expiries, columns=tenors, dtype=float)
-        
-        # Implements a standard square-root of time decaying front-office vol surface matrix
-        expiry_years = {"3M": 0.25, "6M": 0.5, "1Y": 1.0, "2Y": 2.0, "5Y": 5.0, "10Y": 10.0}
-        tenor_years = {"1Y": 1.0, "2Y": 2.0, "3Y": 3.0, "5Y": 5.0, "10Y": 10.0}
-        
-        for exp in expiries:
-            for ten in tenors:
-                t_exp = expiry_years[exp]
-                t_ten = tenor_years[ten]
-                # Simulates typical market term structure decay across long option horizons
-                decay_factor = np.exp(-0.03 * t_exp) * (1.0 + 0.02 * np.log(t_ten))
-                grid_df.loc[exp, ten] = round(atm_vol * decay_factor * 100, 2)
-                
-        return grid_df
+        try:
+            res = least_squares(residual_cost_function, initial_guess, bounds=bounds, method='trf')
+            return {'alpha': res.x[0], 'beta': beta, 'rho': res.x[1], 'nu': res.x[2]}
+        except Exception:
+            return {'alpha': 0.04, 'beta': beta, 'rho': -0.30, 'nu': 0.35}

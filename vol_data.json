@@ -1,0 +1,26 @@
+[
+  {
+    "date": "2026-08-14",
+    "currency": "USD",
+    "expiry": "1Y",
+    "tenor": "5Y",
+    "strike_offset_bps": -100,
+    "implied_vol": 42.5
+  },
+  {
+    "date": "2026-08-14",
+    "currency": "USD",
+    "expiry": "1Y",
+    "tenor": "5Y",
+    "strike_offset_bps": 0,
+    "implied_vol": 35.2
+  },
+  {
+    "date": "2026-08-14",
+    "currency": "USD",
+    "expiry": "1Y",
+    "tenor": "5Y",
+    "strike_offset_bps": 100,
+    "implied_vol": 38.8
+  }
+]
