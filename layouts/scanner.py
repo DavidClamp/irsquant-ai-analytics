@@ -1,9 +1,9 @@
-# layouts/scanner.py
-from dash import dcc, html, dash_table
+# layouts/scanner.py - SYSTEMATIC SCANNER VIEW BLUEPRINT
+from dash import dcc, html
 import dash_bootstrap_components as dbc
 
 def layout_scanner(currencies):
-    """Page 2 View Layout Blueprint."""
+    """Page 2 View Layout Blueprint: Multi-Node OLS Arbitrage Interface Skel."""
     return html.Div([
         dbc.Row([
             dbc.Col([

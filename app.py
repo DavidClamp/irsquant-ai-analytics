@@ -21,7 +21,7 @@ from layouts.volatility_callbacks import register_volatility_callbacks
 # ==========================================
 # DATA INGESTION & DATA ARCHITECTURE REGIME
 # ==========================================
-master_df = pd.read_json('g4_curves.json')
+master_df = pd.read_json('data/g4_curves.json')
 master_df['date'] = pd.to_datetime(master_df['date'])
 master_df['date_str'] = master_df['date'].dt.strftime('%Y-%m-%d')
 
