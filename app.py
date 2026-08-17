@@ -10,7 +10,6 @@ from plotly.subplots import make_subplots
 # Ingest your sub-module analytics packages seamlessly
 import analytics as an
 from curves import BootstrappedDiscountCurve
-from vol import Black76Engine
 from execution import ExecutionOptimizer
 
 import curves as curves_module
@@ -214,6 +213,7 @@ def process_trade_notional_optimization(n_clicks, selected_ccy, structure_string
         ticket = ExecutionOptimizer.calculate_front_office_ticket(curve_obj, risk_amount, short_leg, mid_leg, long_leg, r_short, r_long)
         fig_carry = ExecutionOptimizer.generate_historical_carry_chart(f_matrix, short_leg, mid_leg, long_leg, float(r_short), float(r_long))
         
+                # Build the institutional transaction layout summary block with optimized text visibility
         output_display = html.Div([
             html.Div([
                 html.H5([
@@ -226,29 +226,30 @@ def process_trade_notional_optimization(n_clicks, selected_ccy, structure_string
                 dbc.Col([
                     html.Div([
                         html.Span("🔴 PAY FIXED (Short Leg)", className="badge bg-danger mb-2 d-block text-start fs-6"),
-                        html.Div([html.Strong("Contract Handle: "), html.Span(f"{short_leg}", className="float-end text-light")]),
-                        html.Div([html.Strong("Notional Size: "), html.Span(f"${ticket['notional_short_mm']:.2f}M", className="float-end text-warning")]),
-                        html.Div([html.Strong("Forward Swap Rate: "), html.Span(f"{ticket['rate_short']:.3f}%", className="float-end text-info")])
+                        html.Div([html.Strong("Contract Handle: ", className="text-white"), html.Span(f"{short_leg}", className="float-end text-light")]),
+                        html.Div([html.Strong("Notional Size: ", className="text-white"), html.Span(f"${ticket['notional_short_mm']:.2f}M", className="float-end text-warning fw-bold")]),
+                        html.Div([html.Strong("Forward Swap Rate: ", className="text-white"), html.Span(f"{ticket['rate_short']:.3f}%", className="float-end text-info")])
                     ], className="p-3 bg-opacity-10 bg-danger rounded border border-danger")
                 ], width=4),
                 dbc.Col([
                     html.Div([
                         html.Span("🟢 RECEIVE FIXED (Belly Core)", className="badge bg-success mb-2 d-block text-start fs-6"),
-                        html.Div([html.Strong("Contract Handle: "), html.Span(f"{mid_leg}", className="float-end text-light")]),
-                        html.Div([html.Strong("Notional Size: "), html.Span(f"${ticket['notional_mid_mm']:.2f}M", className="float-end text-warning")]),
-                        html.Div([html.Strong("Forward Swap Rate: "), html.Span(f"{ticket['rate_mid']:.3f}%", className="float-end text-info")])
+                        html.Div([html.Strong("Contract Handle: ", className="text-white"), html.Span(f"{mid_leg}", className="float-end text-light")]),
+                        html.Div([html.Strong("Notional Size: ", className="text-white"), html.Span(f"${ticket['notional_mid_mm']:.2f}M", className="float-end text-warning fw-bold")]),
+                        html.Div([html.Strong("Forward Swap Rate: ", className="text-white"), html.Span(f"{ticket['rate_mid']:.3f}%", className="float-end text-info")])
                     ], className="p-3 bg-opacity-10 bg-success rounded border border-success")
                 ], width=4),
                 dbc.Col([
                     html.Div([
                         html.Span("🔴 PAY FIXED (Long Leg)", className="badge bg-danger mb-2 d-block text-start fs-6"),
-                        html.Div([html.Strong("Contract Handle: "), html.Span(f"{long_leg}", className="float-end text-light")]),
-                        html.Div([html.Strong("Notional Size: "), html.Span(f"${ticket['notional_long_mm']:.2f}M", className="float-end text-warning")]),
-                        html.Div([html.Strong("Forward Swap Rate: "), html.Span(f"{ticket['rate_long']:.3f}%", className="float-end text-info")])
+                        html.Div([html.Strong("Contract Handle: ", className="text-white"), html.Span(f"{long_leg}", className="float-end text-light")]),
+                        html.Div([html.Strong("Notional Size: ", className="text-white"), html.Span(f"${ticket['notional_long_mm']:.2f}M", className="float-end text-warning fw-bold")]),
+                        html.Div([html.Strong("Forward Swap Rate: ", className="text-white"), html.Span(f"{ticket['rate_long']:.3f}%", className="float-end text-info")])
                     ], className="p-3 bg-opacity-10 bg-danger rounded border border-danger")
                 ], width=4)
             ], className="mb-3 g-3")
         ])
+
         return fig_carry, output_display
     except Exception as e:
         return go.Figure(), html.Div(f"Execution pricing mismatch break: {str(e)}", className="text-danger p-2")
