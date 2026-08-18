@@ -13,9 +13,10 @@ from curves import BootstrappedDiscountCurve
 from execution import ExecutionOptimizer
 
 import curves as curves_module
-# Pull all presentation layout package blueprints cleanly out of your verified __init__.py index
-from layouts import layout_diagnostics, layout_scanner, layout_volatility, layout_execution
+from layouts import layout_diagnostics, layout_scanner, layout_execution, layout_swaption_analytics, layout_cap_analytics
 from layouts.volatility_callbacks import register_volatility_callbacks
+
+from vol_surfaces_core import VolSurfaceEngine
 
 # ==========================================
 # DATA INGESTION & DATA ARCHITECTURE REGIME
@@ -33,20 +34,27 @@ all_dates = sorted(master_df['date_str'].unique())
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.CYBORG], suppress_callback_exceptions=True)
 server = app.server
 
+# ==========================================
+# DESK NAVIGATION COMPONENT
+# ==========================================
 navbar = dbc.NavbarSimple(
     children=[
-        dbc.NavItem(dcc.Link("Term Structure Snapshots", href="/", className="nav-link text-warning fw-bold px-3")),
-        dbc.NavItem(dcc.Link("Systematic RV Scanner", href="/page-scanner", className="nav-link text-warning fw-bold px-3")),
-        dbc.NavItem(dcc.Link("Volatility Analytics", href="/page-volatility", className="nav-link text-warning fw-bold px-3")),
-        dbc.NavItem(dcc.Link("Execution Optimizer Desk", href="/page-execution", className="nav-link text-warning fw-bold px-3"))
+        dbc.NavItem(dbc.NavLink("Term Structure Snapshots", href="/")),
+        dbc.NavItem(dbc.NavLink("Systematic RV Scanner", href="/page-scanner")),
+        
+        # INSTITUTIONAL SEPARATION: Split old link into two dedicated desks
+        dbc.NavItem(dbc.NavLink("Swaption Analytics", href="/page-swaptions")),
+        dbc.NavItem(dbc.NavLink("Cap/Floor Analytics", href="/page-caps")),
+        
+        dbc.NavItem(dbc.NavLink("Execution Optimizer Desk", href="/page-execution")),
     ],
     brand="IRSQuant Active Analytics Platform",
     brand_href="/",
-    brand_style={'color': '#ffc107', 'fontWeight': 'bold'},
     color="dark",
     dark=True,
-    className="mb-4 border-bottom border-secondary"
+    className="mb-4 fw-bold border-bottom border-secondary"
 )
+
 
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
@@ -58,15 +66,27 @@ app.layout = html.Div([
 # ==========================================
 # URL INTERFACE CONTROLLER ROUTER MATRIX
 # ==========================================
-@app.callback(Output('page-content', 'children'), Input('url', 'pathname'))
-
+@app.callback(
+    Output('page-content', 'children'), 
+    [Input('url', 'pathname')]
+)
 def display_page(pathname):
+    """Primary application URL router mapping views to standalone institutional panels."""
     if pathname == '/page-scanner':
         return layout_scanner(currencies)
-    elif pathname == '/page-volatility':
-        return layout_volatility(currencies, all_dates)
+    
+    elif pathname == '/page-swaptions':
+        # Directs traffic straight to the new 3D SABR asset grid view
+        return layout_swaption_analytics(currencies)
+        
+    elif pathname == '/page-caps':
+        # Directs traffic straight to the separate linear cap strip desk
+        return layout_cap_analytics(currencies)
+        
     elif pathname == '/page-execution':
         return layout_execution(currencies)
+        
+    # Standard workspace fallback home page view (Diagnostics)
     return layout_diagnostics(currencies, all_dates)
 
 # ==========================================
@@ -256,6 +276,45 @@ def process_trade_notional_optimization(n_clicks, selected_ccy, structure_string
     
 # Initialize and register the decoupled option volatility metrics engine
 register_volatility_callbacks(app, master_df, curves_module)
+
+# ==========================================
+# 3D IRO SWAPTION VOLATILITY CALL DESK
+# ==========================================
+@app.callback(
+    [Output('swaption-3d-canvas', 'figure'),
+     Output('swaption-sabr-parameters-box', 'children')],
+    [Input('swaption-ccy-dropdown', 'value')]
+)
+def update_swaption_volatility_mesh(selected_ccy):
+    """Calculates and streams the SABR calibrated mesh and outputs structural parameter tags."""
+    if not selected_ccy:
+        selected_ccy = "USD"
+        
+    fig, params = VolSurfaceEngine.get_swaption_surface(selected_ccy)
+    
+    params_layout = html.Div([
+        html.Div([html.Strong("Backbone (Beta): "), html.Span(f"{params['beta']:.2f}", className="float-end text-warning")]),
+        html.Div([html.Strong("Initial Vol (Alpha): "), html.Span(f"{params['alpha']:.3f}", className="float-end text-info")]),
+        html.Div([html.Strong("Risk Skew (Rho): "), html.Span(f"{params['rho']:.2f}", className="float-end text-danger fw-bold")]),
+        html.Div([html.Strong("Vol-of-Vol (Nu): "), html.Span(f"{params['nu']:.3f}", className="float-end text-success")])
+    ], className="small d-grid gap-2")
+    
+    return fig, params_layout
+
+
+# ==========================================
+# 3D CAP/FLOORLET LINEAR STRIP CALL DESK
+# ==========================================
+@app.callback(
+    Output('cap-3d-canvas', 'figure'),
+    [Input('cap-ccy-dropdown', 'value')]
+)
+def update_cap_volatility_mesh(selected_ccy):
+    """Calculates and streams the discrete flat caplet pricing mesh."""
+    if not selected_ccy:
+        selected_ccy = "USD"
+        
+    return VolSurfaceEngine.get_cap_surface(selected_ccy)
 
 
 if __name__ == '__main__':
