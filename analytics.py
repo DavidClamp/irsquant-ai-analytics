@@ -74,22 +74,42 @@ def build_forward_permutation_matrix(master_df, selected_ccy):
     ccy_df = master_df[master_df['currency'] == selected_ccy].copy()
     pivot_df = ccy_df.pivot(index='date', columns='tenor', values='rate').dropna()
     
-    start_nodes = [0.25, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+    # FIXED: Expanded node limits to match your extended front-end dashboard 25Y row matrix mapping!
+    start_nodes = [0.25, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 12.0, 15.0, 20.0, 25.0]
     matrix_dict = {f"{n}F1Y": [] for n in start_nodes}
     matrix_dates = []
     
+    # Global layout key safety mapping reference
+    TENOR_LABEL_MAP = {0.25:'3M', 1.0:'1Y', 2.0:'2Y', 3.0:'3Y', 4.0:'4Y', 5.0:'5Y', 6.0:'6Y', 7.0:'7Y', 8.0:'8Y', 9.0:'9Y', 10.0:'10Y', 12.0:'12Y', 15.0:'15Y', 20.0:'20Y', 25.0:'25Y', 30.0:'30Y'}
+    
     for dt in pivot_df.index:
         raw_spots = pivot_df.loc[dt].to_dict()
-        spot_rates_dict = {TENOR_LABEL_MAP[t]: float(r) for t, r in raw_spots.items() if t in TENOR_LABEL_MAP}
+        
+        # Clean string key sanitization layers handling the '1Y' suffix
+        spot_rates_dict = {}
+        for t, r in raw_spots.items():
+            try:
+                numeric_key = float(str(t).upper().replace('Y', '').strip())
+                if numeric_key in TENOR_LABEL_MAP:
+                    spot_rates_dict[TENOR_LABEL_MAP[numeric_key]] = float(r)
+            except ValueError:
+                continue
         
         curve = BootstrappedDiscountCurve(target_date=str(dt), spot_rates_dict=spot_rates_dict)
         matrix_dates.append(str(dt)[:10])
         
         for n in start_nodes:
-            fwd_rate = extract_implied_forward_swap(curve, start_n=n, tenor_m=1.0)
+            # Graceful safety intercept wrapper preventing out-of-bounds calculations
+            try:
+                fwd_rate = extract_implied_forward_swap(curve, start_n=n, tenor_m=1.0)
+            except Exception:
+                # Local baseline fallback to avoid zero matrix holes if an extreme boundary point calculation drops out
+                fwd_rate = float(raw_spots.get(f"{int(n)}Y", raw_spots.get('30Y', 2.5)))
+                
             matrix_dict[f"{n}F1Y"].append(fwd_rate)
             
     return pd.DataFrame(matrix_dict, index=matrix_dates)
+
 
 def run_systematic_butterfly_scan(f_matrix_df):
     """

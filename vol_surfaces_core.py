@@ -1,10 +1,10 @@
-# vol_surfaces_core.py - GENERICS-DRIVEN MULTI-ASSET VOLATILITY STRIPPER
+# vol_surfaces_core.py - TIME-SERIES VOLATILITY SURFACE STRIPPER
 import json
 import numpy as np
 import plotly.graph_objects as go
 
 class VolSurfaceEngine:
-    """Dynamic quantitative engine that reads asset blocks agnostically from file arrays."""
+    """Dynamic quantitative engine that reads historical asset blocks agnostically from file arrays."""
     
     @staticmethod
     def load_raw_matrices():
@@ -16,33 +16,40 @@ class VolSurfaceEngine:
             return {"swaption_sabr_grids": {}, "cap_flat_strips": {}}
 
     @classmethod
-    def get_swaption_surface(cls, currency):
-        """Extracts and maps SABR grid nodes dynamically for any requested currency key."""
+    def get_swaption_surface(cls, currency, target_date=None):
+        """Extracts SABR grid nodes dynamically for any requested currency and date anchor."""
         data = cls.load_raw_matrices()
         grid_map = data.get("swaption_sabr_grids", {})
         
-        # Safe structural fallback lookup if currency passed doesn't exist yet
         if currency not in grid_map:
-            # Dynamically grab the first available currency block as an automated anchor
-            if grid_map:
-                currency = list(grid_map.keys())[0]
-            else:
-                return go.Figure(), {"alpha": 0, "beta": 0, "rho": 0, "nu": 0}
-                
-        grid_data = grid_map[currency]
+            currency = list(grid_map.keys()) if grid_map else "USD"
+            
+        grid_data = grid_map.get(currency, {})
+        if not grid_data:
+            return go.Figure(), {"alpha": 0, "beta": 0, "rho": 0, "nu": 0}
+            
         expiries = grid_data["expiry_nodes"]
         tenors = grid_data["underlying_tenors"]
-        z_matrix = np.array(grid_data["grid_matrix"])
-        params = grid_data["parameters"]
+        
+        # Resolve date indexing safely
+        hist_dict = grid_data.get("historical_data", {})
+        if not target_date or target_date not in hist_dict:
+            target_date = sorted(list(hist_dict.keys()))[-1] if hist_dict else None
+            
+        if not target_date:
+            return go.Figure(), {"alpha": 0, "beta": 0, "rho": 0, "nu": 0}
+            
+        day_slice = hist_dict[target_date]
+        z_matrix = np.array(day_slice["grid_matrix"])
+        params = day_slice["parameters"]
         
         fig = go.Figure(data=[go.Surface(
             x=tenors, y=expiries, z=z_matrix,
-            colorscale='Viridis',
-            colorbar=dict(title="Implied Vol (%)", thickness=15)
+            colorscale='Viridis', colorbar=dict(title="Implied Vol (%)", thickness=15)
         )])
         
         fig.update_layout(
-            title=dict(text=f"IRO Swaption 3D Implied Volatility Grid ({currency} SABR Matrix)", font=dict(color='#ffc107', size=14)),
+            title=dict(text=f"IRO Swaption 3D Volatility Grid ({currency} SABR Matrix - {target_date})", font=dict(color='#ffc107', size=14)),
             template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             scene=dict(xaxis=dict(title="Underlying Tenor"), yaxis=dict(title="Option Expiry"), zaxis=dict(title="Implied Vol (%)")),
             margin=dict(l=10, r=10, t=40, b=10)
@@ -50,30 +57,38 @@ class VolSurfaceEngine:
         return fig, params
 
     @classmethod
-    def get_cap_surface(cls, currency):
-        """Extracts and maps linear cap strips dynamically for any requested currency key."""
+    def get_cap_surface(cls, currency, target_date=None):
+        """Extracts linear cap strips dynamically for any requested currency and date anchor."""
         data = cls.load_raw_matrices()
         cap_map = data.get("cap_flat_strips", {})
         
         if currency not in cap_map:
-            if cap_map:
-                currency = list(cap_map.keys())[0]
-            else:
-                return go.Figure()
-                
-        cap_data = cap_map[currency]
+            currency = list(cap_map.keys()) if cap_map else "USD"
+            
+        cap_data = cap_map.get(currency, {})
+        if not cap_data:
+            return go.Figure()
+            
         maturities = cap_data["maturities"]
         strikes = cap_data["strikes"]
-        z_matrix = np.array(cap_data["strip_matrix"])
+        
+        hist_dict = cap_data.get("historical_data", {})
+        if not target_date or target_date not in hist_dict:
+            target_date = sorted(list(hist_dict.keys()))[-1] if hist_dict else None
+            
+        if not target_date:
+            return go.Figure()
+            
+        day_slice = hist_dict[target_date]
+        z_matrix = np.array(day_slice["strip_matrix"])
         
         fig = go.Figure(data=[go.Surface(
             x=strikes, y=maturities, z=z_matrix,
-            colorscale='Cividis',
-            colorbar=dict(title="Flat Vol (%)", thickness=15)
+            colorscale='Cividis', colorbar=dict(title="Flat Vol (%)", thickness=15)
         )])
         
         fig.update_layout(
-            title=dict(text=f"Cap/Floorlet Linear Implied Volatility Surface Strip ({currency})", font=dict(color='#17a2b8', size=14)),
+            title=dict(text=f"Cap/Floorlet Linear Volatility Surface Strip ({currency} - {target_date})", font=dict(color='#17a2b8', size=14)),
             template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             scene=dict(xaxis=dict(title="Absolute Strike"), yaxis=dict(title="Maturity Term"), zaxis=dict(title="Flat Vol (%)")),
             margin=dict(l=10, r=10, t=40, b=10)

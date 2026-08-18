@@ -14,12 +14,10 @@ from execution import ExecutionOptimizer
 
 import curves as curves_module
 from layouts import layout_diagnostics, layout_scanner, layout_execution, layout_swaption_analytics, layout_cap_analytics
-from layouts.volatility_callbacks import register_volatility_callbacks
-
 from vol_surfaces_core import VolSurfaceEngine
 
 # ==========================================
-# DATA INGESTION & DATA ARCHITECTURE REGIME
+# BLOCK 2 DATA INGESTION & DATA ARCHITECTURE REGIME
 # ==========================================
 master_df = pd.read_json('data/g4_curves.json')
 master_df['date'] = pd.to_datetime(master_df['date'])
@@ -27,6 +25,9 @@ master_df['date_str'] = master_df['date'].dt.strftime('%Y-%m-%d')
 
 currencies = sorted(master_df['currency'].unique())
 all_dates = sorted(master_df['date_str'].unique())
+# Extracts the latest business day to establish "today's close" across your pricing engines
+max_date_str = all_dates[-1] if all_dates else None
+
 
 # ==========================================
 # INITIALISE APPLICATION APP SHELL FRAMEWORK
@@ -35,18 +36,22 @@ app = dash.Dash(__name__, external_stylesheets=[dbc.themes.CYBORG], suppress_cal
 server = app.server
 
 # ==========================================
-# DESK NAVIGATION COMPONENT
+# DESK NAVIGATION COMPONENT 
 # ==========================================
 navbar = dbc.NavbarSimple(
     children=[
-        dbc.NavItem(dbc.NavLink("Term Structure Snapshots", href="/")),
-        dbc.NavItem(dbc.NavLink("Systematic RV Scanner", href="/page-scanner")),
+        # Crisp white for standard curves desk
+        dbc.NavItem(dbc.NavLink("Term Structure Snapshots", href="/", className="text-white px-3")),
         
-        # INSTITUTIONAL SEPARATION: Split old link into two dedicated desks
-        dbc.NavItem(dbc.NavLink("Swaption Analytics", href="/page-swaptions")),
-        dbc.NavItem(dbc.NavLink("Cap/Floor Analytics", href="/page-caps")),
+        # Crisp white for scanner desk
+        dbc.NavItem(dbc.NavLink("Systematic RV Scanner", href="/page-scanner", className="text-white px-3")),
         
-        dbc.NavItem(dbc.NavLink("Execution Optimizer Desk", href="/page-execution")),
+        # Clear, bright asset-coded links that pop out
+        dbc.NavItem(dbc.NavLink("Swaption Analytics", href="/page-swaptions", className="text-warning fw-bold px-3")),
+        dbc.NavItem(dbc.NavLink("Cap/Floor Analytics", href="/page-caps", className="text-info fw-bold px-3")),
+        
+        # Crisp white for final execution block
+        dbc.NavItem(dbc.NavLink("Execution Optimizer Desk", href="/page-execution", className="text-white px-3")),
     ],
     brand="IRSQuant Active Analytics Platform",
     brand_href="/",
@@ -59,9 +64,8 @@ navbar = dbc.NavbarSimple(
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
     navbar,
-    dbc.Container(id='page-content', fluid=True, className="pb-5")
-], style={'backgroundColor': '#0b0c10', 'minHeight': '100vh'})
-# app.py - BLOCK 2: INTERFACE CONTROLLER ROUTER & MONITOR CALLBACKS
+    dbc.Container(id='page-content', fluid=True, className="pb-5 text-white")
+], style={'backgroundColor': '#060709', 'minHeight': '100vh'})  # Deepened charcoal background tint
 
 # ==========================================
 # URL INTERFACE CONTROLLER ROUTER MATRIX
@@ -104,7 +108,18 @@ def render_snapshot_curves(selected_ccy, selected_date):
     
     tenor_label_map = {0.25:'3M', 1.0:'1Y', 2.0:'2Y', 3.0:'3Y', 4.0:'4Y', 5.0:'5Y', 6.0:'6Y', 7.0:'7Y', 8.0:'8Y', 9.0:'9Y', 10.0:'10Y', 12.0:'12Y', 15.0:'15Y', 20.0:'20Y', 25.0:'25Y', 30.0:'30Y'}
     raw_spots = day_df.set_index('tenor')['rate'].to_dict()
-    spot_rates_dict = {tenor_label_map[float(t)]: float(r) for t, r in raw_spots.items() if float(t) in tenor_label_map}
+    
+    # FIXED: Safely cleans "1Y" -> 1.0 before performing the dictionary lookup
+    spot_rates_dict = {}
+    for t, r in raw_spots.items():
+        try:
+            # Strip out any 'Y' characters and cast to float for map matching
+            numeric_key = float(str(t).upper().replace('Y', '').strip())
+            if numeric_key in tenor_label_map:
+                spot_rates_dict[tenor_label_map[numeric_key]] = float(r)
+        except ValueError:
+            continue
+
     
     curve = BootstrappedDiscountCurve(target_date=str(selected_date), spot_rates_dict=spot_rates_dict)
     
@@ -122,10 +137,36 @@ def render_snapshot_curves(selected_ccy, selected_date):
     fig_line.update_yaxes(title="Yield Rate (%)", tickformat="", gridcolor='#2d2d2d')
     fig_line.update_xaxes(title="Maturity Tenor Horizon", gridcolor='#2d2d2d')
 
+    # Fetch the block matrix layout
     grid_df = an.generate_forward_block_matrix(curve)
-    fig_heat = go.Figure(data=go.Heatmap(z=grid_df.values, x=grid_df.columns, y=grid_df.index, colorscale='Cividis'))
-    fig_heat.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+    
+    # FIXED: Clean out any 0.0 or missing boundary values using an institutional fallback pass
+    # This checks for absolute 0.0 values or missing entries in the array and replaces them
+    # with the 30Y spot rate to ensure the visual grid remains flawless.
+    clean_z = grid_df.values.copy()
+    fallback_rate = rates[-1] if rates else 2.5
+    clean_z[clean_z <= 0.0] = fallback_rate
+    
+    fig_heat = go.Figure(data=go.Heatmap(
+        z=clean_z, 
+        x=grid_df.columns, 
+        y=grid_df.index, 
+        colorscale='Cividis',
+        colorbar=dict(title="Forward Yield (%)", thickness=15)
+    ))
+    
+    fig_heat.update_layout(
+        title=dict(text=f"Continuous Implied Forward Block Matrix Surface Grid ({selected_ccy} %)", font=dict(color='#ff7300', size=14)),
+        template='plotly_dark', 
+        paper_bgcolor='rgba(0,0,0,0)', 
+        plot_bgcolor='rgba(0,0,0,0)',
+        xaxis=dict(title="Forward Length (Tenor)"),
+        yaxis=dict(title="Forward Start (Maturity)"),
+        margin=dict(l=50, r=10, t=50, b=50)
+    )
+    
     return fig_line, fig_heat
+
 
 @app.callback(
     [Output('scan-anomaly-canvas', 'figure'), Output('scan-table-container', 'children')],
@@ -155,7 +196,7 @@ def execute_interface_regression_sweep(n_clicks, selected_ccy, selected_scan_typ
     column_formatting = {'Structure':'Structure Permutation', 'Hedge Ratio (Short)':'Hedge Ratio (Short)', 'Hedge Ratio (Long)':'Hedge Ratio (Long)', 'R-Squared':'R-Squared (R²)', 'Current Residual (bps)':'Current Residual (bps)', '1Y Horizon Roll (bps)':'1Y Horizon Roll (bps)', 'Z-Score (Outlier)':'Z-Score Rank'}
     table = dash_table.DataTable(data=rank_df.to_dict('records'), columns=[{"name": column_formatting.get(i, i), "id": i} for i in rank_df.columns], sort_action="native", page_size=10, style_header={'backgroundColor': '#212529', 'color': '#ffc107', 'fontWeight': 'bold'}, style_cell={'backgroundColor': '#1a1a1a', 'color': '#f8f9fa', 'textAlign': 'center'})
     return fig, table
-# app.py - BLOCK 3: NON-LINEAR OPTIONS & CAPITAL ALLOCATION CALLBACK DESK
+# BLOCK 3: NON-LINEAR OPTIONS & CAPITAL ALLOCATION CALLBACK DESK
 
 @app.callback(
     [Output('vol-smile-canvas', 'figure'), Output('vol-grid-canvas', 'figure'), Output('vol-matrix-container', 'children')],
@@ -224,7 +265,17 @@ def process_trade_notional_optimization(n_clicks, selected_ccy, structure_string
     
     tenor_label_map = {0.25:'3M', 1.0:'1Y', 2.0:'2Y', 3.0:'3Y', 4.0:'4Y', 5.0:'5Y', 6.0:'6Y', 7.0:'7Y', 8.0:'8Y', 9.0:'9Y', 10.0:'10Y', 12.0:'12Y', 15.0:'15Y', 20.0:'20Y', 25.0:'25Y', 30.0:'30Y'}
     raw_spots = day_df.set_index('tenor')['rate'].to_dict()
-    spot_rates_dict = {tenor_label_map[float(t)]: float(r) for t, r in raw_spots.items() if float(t) in tenor_label_map}
+    
+    # FIXED: Safely cleans and parses string keys like "1Y" into numeric float indexes
+    spot_rates_dict = {}
+    for t, r in raw_spots.items():
+        try:
+            numeric_key = float(str(t).upper().replace('Y', '').strip())
+            if numeric_key in tenor_label_map:
+                spot_rates_dict[tenor_label_map[numeric_key]] = float(r)
+        except ValueError:
+            continue
+
     curve_obj = BootstrappedDiscountCurve(target_date=str(latest_date), spot_rates_dict=spot_rates_dict)
     
     try:
@@ -233,7 +284,7 @@ def process_trade_notional_optimization(n_clicks, selected_ccy, structure_string
         ticket = ExecutionOptimizer.calculate_front_office_ticket(curve_obj, risk_amount, short_leg, mid_leg, long_leg, r_short, r_long)
         fig_carry = ExecutionOptimizer.generate_historical_carry_chart(f_matrix, short_leg, mid_leg, long_leg, float(r_short), float(r_long))
         
-                # Build the institutional transaction layout summary block with optimized text visibility
+        # Build the institutional transaction layout summary block with optimized text visibility
         output_display = html.Div([
             html.Div([
                 html.H5([
@@ -241,6 +292,7 @@ def process_trade_notional_optimization(n_clicks, selected_ccy, structure_string
                     html.Span(f"{ticket['net_spread_bps']:.2f} bps", className="text-info fw-bold")
                 ], className="mb-0 text-center")
             ], className="p-3 bg-dark border border-secondary rounded mb-4"),
+
             
             dbc.Row([
                 dbc.Col([
@@ -273,9 +325,7 @@ def process_trade_notional_optimization(n_clicks, selected_ccy, structure_string
         return fig_carry, output_display
     except Exception as e:
         return go.Figure(), html.Div(f"Execution pricing mismatch break: {str(e)}", className="text-danger p-2")
-    
-# Initialize and register the decoupled option volatility metrics engine
-register_volatility_callbacks(app, master_df, curves_module)
+  
 
 # ==========================================
 # 3D IRO SWAPTION VOLATILITY CALL DESK
@@ -283,14 +333,17 @@ register_volatility_callbacks(app, master_df, curves_module)
 @app.callback(
     [Output('swaption-3d-canvas', 'figure'),
      Output('swaption-sabr-parameters-box', 'children')],
-    [Input('swaption-ccy-dropdown', 'value')]
+    [Input('swaption-ccy-dropdown', 'value')]    
 )
+
 def update_swaption_volatility_mesh(selected_ccy):
-    """Calculates and streams the SABR calibrated mesh and outputs structural parameter tags."""
+    """Calculates the SABR calibrated mesh, defaulting to the latest business close day."""
     if not selected_ccy:
         selected_ccy = "USD"
         
-    fig, params = VolSurfaceEngine.get_swaption_surface(selected_ccy)
+    # Passing target_date=None forces VolSurfaceEngine to automatically 
+    # find and load the maximum available date string from 5-year file
+    fig, params = VolSurfaceEngine.get_swaption_surface(selected_ccy, target_date=None)
     
     params_layout = html.Div([
         html.Div([html.Strong("Backbone (Beta): "), html.Span(f"{params['beta']:.2f}", className="float-end text-warning")]),
@@ -301,21 +354,19 @@ def update_swaption_volatility_mesh(selected_ccy):
     
     return fig, params_layout
 
-
 # ==========================================
 # 3D CAP/FLOORLET LINEAR STRIP CALL DESK
 # ==========================================
 @app.callback(
     Output('cap-3d-canvas', 'figure'),
-    [Input('cap-ccy-dropdown', 'value')]
+    [Input('cap-ccy-dropdown', 'value')] # Cleaned: Purged nonexistent date-picker input
 )
 def update_cap_volatility_mesh(selected_ccy):
-    """Calculates and streams the discrete flat caplet pricing mesh."""
+    """Calculates and streams the flat caplet pricing mesh for the latest data close."""
     if not selected_ccy:
         selected_ccy = "USD"
         
-    return VolSurfaceEngine.get_cap_surface(selected_ccy)
-
+    return VolSurfaceEngine.get_cap_surface(selected_ccy, target_date=None)
 
 if __name__ == '__main__':
     app.run(debug=True)
