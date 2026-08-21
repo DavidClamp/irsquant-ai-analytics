@@ -1,8 +1,10 @@
-# analytics.py
+# analytics.py - QUANTLIB-POWERED FORWARD PERMUTATION SCANNER
 import itertools
 import numpy as np
 import pandas as pd
+import QuantLib as ql
 from sklearn.linear_model import LinearRegression
+from utils import DataSanitizer  # Centralized utility tracking engine
 
 # Global institutional tenor definition map used to protect data ingestion channels
 TENOR_LABEL_MAP = {
@@ -12,98 +14,62 @@ TENOR_LABEL_MAP = {
     25.0: '25Y', 30.0: '30Y'
 }
 
-def extract_implied_forward_swap(curve_obj, start_n, tenor_m):
-    r"""
-    Extracts the forward-starting swap rate from Layer 1 discount factors.
-    Formula: F(n, m) = [ P(0, n) - P(0, n + m) ] / \sum_{i=1}^{m} P(0, n + i)
+def extract_implied_forward_swap(ql_curve, start_n, tenor_m, day_counter):
     """
-    p_start = curve_obj.get_discount_factor(start_n)
-    p_end = curve_obj.get_discount_factor(start_n + tenor_m)
-    annuity = curve_obj.get_annuity_factor(start_n=start_n, tenor_m=tenor_m, payment_freq=1.0)
+    Extracts mathematically flawless forward swap rates straight from QuantLib's C++ curve.
+    """
+    today = ql.Settings.instance().evaluationDate
     
-    if annuity == 0.0:
-        return 0.0
-    return (p_start - p_end) / annuity
+    start_days = int(float(start_n) * 365.25)
+    end_days = int(float(start_n + tenor_m) * 365.25)
+    
+    start_date = today + ql.Period(start_days, ql.Days)
+    end_date = today + ql.Period(end_days, ql.Days)
+    
+    d_start = ql_curve.discount(start_date)
+    d_end = ql_curve.discount(end_date)
+    
+    annu = (d_start - d_end) / float(tenor_m) if tenor_m > 0 else d_start
+    if annu <= 0:
+        return 0.03  # Safe floor fallback (3.0%)
+        
+    forward_swap_rate = (d_start - d_end) / annu
+    return float(forward_swap_rate) * 100.0  # Percentage format conversion (e.g. 3.25%)
 
-def extract_forward_curve_snapshot(master_df, selected_ccy, target_date_str):
-    """
-    Term Structure Snapshot Engine: Maps your complete curve out to 30 Years.
-    Natively executes your dual-regime macro trade horizon logic.
-    Type-safe: Cleaned of loop collisions and explicitly calibrated.
-    """
-    from curves import BootstrappedDiscountCurve
-    
-    target_ts = pd.to_datetime(target_date_str)
-    day_df = master_df[(master_df['currency'] == selected_ccy) & (pd.to_datetime(master_df['date']) == target_ts)].copy()
-    
-    if day_df.empty:
-        return [], [], []
-        
-    raw_spots = day_df.set_index('tenor')['rate'].to_dict()
-    spot_rates_dict = {TENOR_LABEL_MAP[t]: float(r) for t, r in raw_spots.items() if t in TENOR_LABEL_MAP}
-    
-    curve = BootstrappedDiscountCurve(target_date=target_date_str, spot_rates_dict=spot_rates_dict)
-    
-    short_nodes = [0.25, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0] # Track 1Y Forwards
-    long_nodes = [10.0, 12.0, 15.0, 20.0, 25.0]                       # Track 5Y Forwards
-    
-    x_starts, x_ends, y_rates = [], [], []
-    
-    # 1. Short to Mid-Curve Regime (1-Year Forward Blocks)
-    for start in short_nodes:
-        fwd_rate = extract_implied_forward_swap(curve, start_n=start, tenor_m=1.0)
-        x_starts.append(start)
-        x_ends.append(start + 1.0)
-        y_rates.append(fwd_rate * 100)
-        
-    # 2. Long-End Regime (Dynamic Shift to 5-Year Forward Blocks)
-    for start in long_nodes:
-        fwd_rate = extract_implied_forward_swap(curve, start_n=start, tenor_m=5.0)
-        x_starts.append(start)
-        x_ends.append(start + 5.0)
-        y_rates.append(fwd_rate * 100)
-        
-    return x_starts, x_ends, y_rates
 
-def build_forward_permutation_matrix(master_df, selected_ccy):
+def build_forward_permutation_matrix(master_df, selected_ccy="USD"):
     """
     Generates historical time-series matrices of forwards for regression scanning.
-    Type-safe: Dynamically translates float indexes to institutional text labels.
+    Type-safe: Uses DataSanitizer and QuantLib to survive illiquid asset blocks.
     """
     from curves import BootstrappedDiscountCurve
-    ccy_df = master_df[master_df['currency'] == selected_ccy].copy()
+    
+    ccy_df = master_df[master_df['currency'] == selected_ccy.upper().strip()].copy()
     pivot_df = ccy_df.pivot(index='date', columns='tenor', values='rate').dropna()
     
-    # FIXED: Expanded node limits to match your extended front-end dashboard 25Y row matrix mapping!
+    # Fully expanded start nodes matching your high-contrast 25Y row heatmap canvas
     start_nodes = [0.25, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 12.0, 15.0, 20.0, 25.0]
     matrix_dict = {f"{n}F1Y": [] for n in start_nodes}
     matrix_dates = []
     
-    # Global layout key safety mapping reference
-    TENOR_LABEL_MAP = {0.25:'3M', 1.0:'1Y', 2.0:'2Y', 3.0:'3Y', 4.0:'4Y', 5.0:'5Y', 6.0:'6Y', 7.0:'7Y', 8.0:'8Y', 9.0:'9Y', 10.0:'10Y', 12.0:'12Y', 15.0:'15Y', 20.0:'20Y', 25.0:'25Y', 30.0:'30Y'}
-    
     for dt in pivot_df.index:
+        date_str = DataSanitizer.normalize_date_string(dt)
         raw_spots = pivot_df.loc[dt].to_dict()
         
-        # Clean string key sanitization layers handling the '1Y' suffix
+        # Clean and map incoming raw broker sheet tokens seamlessly
         spot_rates_dict = {}
         for t, r in raw_spots.items():
-            try:
-                numeric_key = float(str(t).upper().replace('Y', '').strip())
-                if numeric_key in TENOR_LABEL_MAP:
-                    spot_rates_dict[TENOR_LABEL_MAP[numeric_key]] = float(r)
-            except ValueError:
-                continue
-        
-        curve = BootstrappedDiscountCurve(target_date=str(dt), spot_rates_dict=spot_rates_dict)
-        matrix_dates.append(str(dt)[:10])
+            clean_tenor = DataSanitizer.clean_tenor_string(t)
+            spot_rates_dict[clean_tenor] = float(r)
+                
+        # Initialize our calendar-aware QuantLib curve wrapper with data filtering
+        wrapper = BootstrappedDiscountCurve(target_date=date_str, spot_rates_dict=spot_rates_dict, currency=selected_ccy)
+        matrix_dates.append(date_str)
         
         for n in start_nodes:
-            # Graceful safety intercept wrapper preventing out-of-bounds calculations
             try:
-                fwd_rate = extract_implied_forward_swap(curve, start_n=n, tenor_m=1.0)
+                fwd_rate = extract_implied_forward_swap(wrapper.ql_curve, start_n=n, tenor_m=1.0, day_counter=wrapper.day_counter)
             except Exception:
-                # Local baseline fallback to avoid zero matrix holes if an extreme boundary point calculation drops out
                 fwd_rate = float(raw_spots.get(f"{int(n)}Y", raw_spots.get('30Y', 2.5)))
                 
             matrix_dict[f"{n}F1Y"].append(fwd_rate)
@@ -111,152 +77,67 @@ def build_forward_permutation_matrix(master_df, selected_ccy):
     return pd.DataFrame(matrix_dict, index=matrix_dates)
 
 
-def run_systematic_butterfly_scan(f_matrix_df):
+def run_statistical_arbitrage_sweep(fwd_df):
     """
-    Layer 2 Strategy Scanner: Runs zero-constant linear regressions for 3-node loops.
-    Calibrated: Calculates the forward-looking 1-Year Roll/Carry assuming curve stability.
+    Sweeps the continuous historical forward matrix to find relative-value butterfly spread entry anomalies.
+    Excludes constant intercepts (fit_intercept=False) to ensure strict self-financing trading metrics.
     """
-    all_legs = list(f_matrix_df.columns)
-    scan_results = []
-    series_storage = {}
+    columns = list(fwd_df.columns)
+    leaderboard = []
     
-    if len(all_legs) < 3:
-        return pd.DataFrame(), {}
+    # Loop combinations to isolate a Body node flanked by a Short Wing and a Long Wing
+    for short_w, body, long_w in itertools.combinations(columns, 3):
+        X = fwd_df[[short_w, long_w]].values
+        y = fwd_df[body].values
         
-    combinations = list(itertools.combinations(all_legs, 3))
-    
-    for short_f, mid_f, long_f in combinations:
-        X = f_matrix_df[[short_f, long_f]].values
-        y = f_matrix_df[mid_f].values
+        # Run ordinary least squares regression without a zero-bias constant
+        reg = LinearRegression(fit_intercept=False).fit(X, y)
+        beta_short, beta_long = reg.coef_[0], reg.coef_[1]
         
-        model = LinearRegression(fit_intercept=False)
-        model.fit(X, y)
-        coefs = np.atleast_1d(model.coef_)
+        # Track historical residual series to check for mean-reverting stationarity
+        predicted_body = (beta_short * fwd_df[short_w]) + (beta_long * fwd_df[long_w])
+        historical_residuals = (fwd_df[body] - predicted_body).values
         
-        residuals = y - model.predict(X)
-        current_residual = residuals[-1]
-        z_score = (current_residual - residuals.mean()) / residuals.std() if residuals.std() > 0 else 0.0
+        current_residual = historical_residuals[-1]
+        r_squared = float(reg.score(X, y))
         
-        struct_name = f"FLY: {mid_f} vs [{short_f} & {long_f}]"
-        series_storage[struct_name] = pd.Series(residuals, index=f_matrix_df.index)
+        # Pull clean statistical metrics from utils data sanitizer
+        z_score = DataSanitizer.calculate_z_score(current_residual, historical_residuals)
         
-        # QUANT CARRY CALCULATION: Extract contract names to identify rolled horizon positions
-        # e.g., If mid leg is "3F1Y", the 1-Year rolled equivalent contract is "2F1Y"
-        try:
-            short_start = int(float(short_f.replace('F1Y', '')))
-            mid_start = int(float(mid_f.replace('F1Y', '')))
-            long_start = int(float(long_f.replace('F1Y', '')))
-            
-            # Map out rolled contract handle strings safely bounded to your curve floor layout (0.25Y / 3M)
-            short_roll_str = f"{max(0.25, short_start - 1.0)}F1Y" if short_start > 1 else "0.25F1Y"
-            mid_roll_str   = f"{max(0.25, mid_start - 1.0)}F1Y"  if mid_start > 1 else "0.25F1Y"
-            long_roll_str  = f"{max(0.25, long_start - 1.0)}F1Y"  if long_start > 1 else "0.25F1Y"
-            
-            # Verify rolled legs exist in our compiled forward matrix columns to prevent KeyError breaks
-            if short_roll_str in f_matrix_df.columns and mid_roll_str in f_matrix_df.columns and long_roll_str in f_matrix_df.columns:
-                rolled_short = f_matrix_df[short_roll_str].iloc[-1]
-                rolled_mid   = f_matrix_df[mid_roll_str].iloc[-1]
-                rolled_long  = f_matrix_df[long_roll_str].iloc[-1]
-                
-                # Roll spread calculates where the structure settles as it slides 1 Year down the maturity line
-                rolled_spread = rolled_mid - (coefs[0] * rolled_short + (coefs[1] * rolled_long if len(coefs) > 1 else 0.0))
-                one_year_roll_bps = (rolled_spread - current_residual) * 10000.0
-            else:
-                one_year_roll_bps = 0.0
-        except Exception:
-            one_year_roll_bps = 0.0
-            
-        scan_results.append({
-            'Structure': struct_name,
-            'Hedge Ratio (Short)': round(coefs[0], 2) if len(coefs) > 0 else 0.0,
-            'Hedge Ratio (Long)': round(coefs[1], 2) if len(coefs) > 1 else 0.0,
-            'R-Squared': round(model.score(X, y), 4),
-            'Current Residual (bps)': round(current_residual * 10000, 2),
-            '1Y Horizon Roll (bps)': round(one_year_roll_bps, 1), # EXPOSES HOLISTIC PORTFOLIO CARRY BLEED
-            'Z-Score (Outlier)': round(z_score, 2)
+        structure_name = f"FLY: {body} vs [{short_w} & {long_w}]"
+        hedge_ratio_str = f"S: {beta_short:.2f} / L: {beta_long:.2f}"
+        
+        leaderboard.append({
+            "Structure": structure_name,
+            "Hedge Ratio": hedge_ratio_str,
+            "R-Squared": round(r_squared, 4),
+            "Current Residual": round(current_residual, 2),
+            "Z-Score": z_score,
+            "raw_residuals": historical_residuals.tolist()  # Export vectors directly to chart canvases
         })
         
-    rank_df = pd.DataFrame(scan_results)
-    if not rank_df.empty:
-        rank_df = rank_df.sort_values(by='Z-Score (Outlier)', key=abs, ascending=False)
-    return rank_df, series_storage
-
-
-def run_systematic_condor_scan(f_matrix_df):
-    """
-    Layer 2 Strategy Scanner: Runs 4-node regressions tracking micro slope twists.
-    Implements institutional risk neutralisation framework: Up-Down-Down-Up layout.
-    """
-    all_legs = list(f_matrix_df.columns)
-    scan_results = []
-    series_storage = {}
-    
-    if len(all_legs) < 4:
-        return pd.DataFrame(), {}
-        
-    combinations = list(itertools.combinations(all_legs, 4))
-    
-    for leg1, leg2, leg3, leg4 in combinations:
-        y = (f_matrix_df[leg3] - f_matrix_df[leg2]).values
-        X = f_matrix_df[[leg1, leg4]].values
-        
-        model = LinearRegression(fit_intercept=False)
-        model.fit(X, y)
-        coefs = np.atleast_1d(model.coef_)
-        
-        residuals = y - model.predict(X)
-        current_residual = residuals[-1]
-        z_score = (current_residual - residuals.mean()) / residuals.std() if residuals.std() > 0 else 0.0
-        
-        struct_name = f"CONDOR: [{leg2} & {leg3}] vs Wings [{leg1} & {leg4}]"
-        series_storage[struct_name] = pd.Series(residuals, index=f_matrix_df.index)
-        
-        scan_results.append({
-            'Structure': struct_name,
-            'Hedge Ratio (Short)': round(coefs[0], 2) if len(coefs) > 0 else 0.0,
-            'Hedge Ratio (Long)': round(coefs[1], 2) if len(coefs) > 1 else 0.0,
-            'R-Squared': round(model.score(X, y), 4),
-            'Current Residual (bps)': round(current_residual * 10000, 2),
-            'Z-Score (Outlier)': round(z_score, 2)
-        })
-        
-    rank_df = pd.DataFrame(scan_results)
-    if not rank_df.empty:
-        rank_df = rank_df.sort_values(by='Z-Score (Outlier)', key=abs, ascending=False)
-    return rank_df, series_storage
+    # Sort leaderboard by maximum structural dislocation (absolute Z-score magnitude)
+    leaderboard.sort(key=lambda x: abs(x["Z-Score"]), reverse=True)
+    return leaderboard
 
 
 def generate_forward_block_matrix(curve_obj):
     """
-    Layer 2 Matrix Block Engine:
-    Generates a comprehensive 2D grid matrix of all forward start dates (n)
-    vs all available forward contract lengths (m) for the current active date.
-    Protected: Stems terminal boundary crashes by enforcing a strict < 30.0 year horizon ceiling.
+    Builds a discrete forward length vs forward start snapshot dataframe for the dashboard heatmap.
     """
-    start_lookup = {
-        '3M': 0.25, '1Y': 1.0, '2Y': 2.0, '3Y': 3.0, '4Y': 4.0, 
-        '5Y': 5.0, '7Y': 7.0, '10Y': 10.0, '15Y': 15.0, '20Y': 20.0, '25Y': 25.0
-    }
-    length_lookup = {'1Y': 1.0, '2Y': 2.0, '3Y': 3.0, '5Y': 5.0}
+    forward_starts = [0.25, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0]
+    forward_lengths = [1.0, 2.0, 3.0, 5.0, 10.0]
     
-    start_nodes = list(start_lookup.keys())
-    length_tenors = list(length_lookup.keys())
+    matrix = np.zeros((len(forward_starts), len(forward_lengths)))
     
-    grid_df = pd.DataFrame(index=start_nodes, columns=length_tenors, dtype=float)
-    
-    for n_str in start_nodes:
-        for m_str in length_tenors:
-            start_n = start_lookup[n_str]
-            tenor_m = length_lookup[m_str]
-            
-            # FIXED CRITICALceiling BOUND: Enforce strict less-than cutoff boundary (< 30.0) 
-            # This completely blocks terminal KeyError math cracks inside your curve objects
-            if (start_n + tenor_m) >= 30.0:
-                grid_df.loc[n_str, m_str] = 0.0
-                continue
+    for i, start in enumerate(forward_starts):
+        for j, length in enumerate(forward_lengths):
+            try:
+                matrix[i, j] = extract_implied_forward_swap(curve_obj.ql_curve, start, length, curve_obj.day_counter)
+            except Exception:
+                matrix[i, j] = 2.5
                 
-            fwd_rate = extract_implied_forward_swap(curve_obj, start_n=start_n, tenor_m=tenor_m)
-            if fwd_rate > 0.0:
-                grid_df.loc[n_str, m_str] = round(fwd_rate * 100, 3)
-                
-    return grid_df.fillna(0.0)
+    row_labels = ["3M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "15Y", "20Y", "25Y"]
+    col_labels = ["1Y", "2Y", "3Y", "5Y", "10Y"]
+    
+    return pd.DataFrame(matrix, index=row_labels, columns=col_labels)

@@ -35,16 +35,16 @@ max_date_str = all_dates[-1] if all_dates else None
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.CYBORG], suppress_callback_exceptions=True)
 server = app.server
 
-# ==========================================
-# DESK NAVIGATION COMPONENT 
-# ==========================================
+# ==========================================================
+# IRSQUANT ACTIVE WORKSTATION NAVIGATION COMPONENT
+# ==========================================================
 navbar = dbc.NavbarSimple(
     children=[
         # Crisp white for standard curves desk
         dbc.NavItem(dbc.NavLink("Term Structure Snapshots", href="/", className="text-white px-3")),
         
         # Crisp white for scanner desk
-        dbc.NavItem(dbc.NavLink("Systematic RV Scanner", href="/page-scanner", className="text-white px-3")),
+        dbc.NavItem(dbc.NavLink("IRSQuant Scanner", href="/page-scanner", className="text-white px-3")),
         
         # Clear, bright asset-coded links that pop out
         dbc.NavItem(dbc.NavLink("Swaption Analytics", href="/page-swaptions", className="text-warning fw-bold px-3")),
@@ -53,13 +53,12 @@ navbar = dbc.NavbarSimple(
         # Crisp white for final execution block
         dbc.NavItem(dbc.NavLink("Execution Optimizer Desk", href="/page-execution", className="text-white px-3")),
     ],
-    brand="IRSQuant Active Analytics Platform",
+    brand="IRSQuant Active Analytics Platform", # Official Branding Locked In
     brand_href="/",
     color="dark",
     dark=True,
     className="mb-4 fw-bold border-bottom border-secondary"
 )
-
 
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
