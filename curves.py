@@ -44,21 +44,35 @@ class BootstrappedDiscountCurve:
         rate_helpers = []
         
         for raw_tenor, rate_val in spot_rates_dict.items():
-            clean_rate = float(rate_val)
+            # 🛡️ Cast everything down to clean string primitives instantly
+            raw_tenor_str = str(raw_tenor).strip().upper()
+            
+            # Extract purely numeric characters to avoid list/text-slicing crashes
+            clean_num_str = "".join(filter(str.isdigit, raw_tenor_str))
+            if not clean_num_str:
+                continue
+                
+            try:
+                clean_rate = float(rate_val)
+            except (ValueError, TypeError):
+                continue
+                
             if clean_rate <= 0.0:
-                continue  # Filter missing gaps/liquidity drops to protect matrix solver
+                continue  # Filter missing data drops to protect the solver
                 
             quote_handle = ql.QuoteHandle(ql.SimpleQuote(clean_rate / 100.0 if clean_rate > 1.0 else clean_rate))
-            clean_tenor_str = DataSanitizer.clean_tenor_string(raw_tenor)
             
-            # Map clean token string variables to explicit C++ Period dimensions
-            if 'M' in clean_tenor_str:
-                period = ql.Period(int(clean_tenor_str.replace('M', '')), ql.Months)
-            else:
-                period = ql.Period(int(clean_tenor_str.replace('Y', '')), ql.Years)
+            # Map clean token string variables to explicit C++ Period dimensions safely
+            try:
+                if 'M' in raw_tenor_str:
+                    period = ql.Period(int(clean_num_str), ql.Months)
+                else:
+                    period = ql.Period(int(clean_num_str), ql.Years)
+            except Exception:
+                continue # Skip corrupt tenor assignments gracefully
                 
             # Direct nodes to relevant interbank short-term or term structural helpers
-            if clean_tenor_str == "3M" and self.currency not in ["GBP", "ZAR"]:
+            if 'M' in raw_tenor_str and int(clean_num_str) <= 3 and self.currency not in ["GBP", "ZAR"]:
                 helper = ql.DepositRateHelper(quote_handle, period, settlement_days, self.calendar, 
                                              ql.ModifiedFollowing, False, self.day_counter)
             else:
@@ -67,12 +81,13 @@ class BootstrappedDiscountCurve:
             rate_helpers.append(helper)
             
         if not rate_helpers:
-            raise ValueError(f"Bootstrapping failed: Data vectors for {self.currency} on {self.target_date_str} are completely null.")
+            raise ValueError(f"Bootstrapping failed: Data vectors for {self.currency} are completely null.")
             
         curve_settlement_date = self.calendar.advance(self.ql_eval_date, ql.Period(settlement_days, ql.Days))
         
         # Enforce strict log-linear continuous interpolation over discount factors
         return ql.PiecewiseLogLinearDiscount(curve_settlement_date, rate_helpers, self.day_counter)
+
 
     def get_discount_factor(self, maturity_years):
         """

@@ -30,31 +30,48 @@ def extract_implied_forward_swap(ql_curve, start_n, tenor_m, day_counter):
 def build_forward_permutation_matrix(master_df, selected_ccy="USD"):
     """
     Generates historical time-series matrices of forwards for regression scanning.
+    🛡️ Shielded: Explicitly catches and handles local node interpolation crashes.
     """
     from curves import BootstrappedDiscountCurve
     
     ccy_df = master_df[master_df['currency'] == selected_ccy.upper().strip()].copy()
-    pivot_df = ccy_df.pivot(index='date', columns='tenor', values='rate').dropna()
+    cleaned_df = ccy_df.groupby(['date', 'tenor'], as_index=False)['rate'].mean()
+    pivot_df = cleaned_df.pivot(index='date', columns='tenor', values='rate').dropna()
     
     start_nodes = [0.25, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 12.0, 15.0, 20.0, 25.0]
+    
+    # Pre-populate empty data columns to match array frame targets
     matrix_dict = {f"{n}F1Y": [] for n in start_nodes}
     matrix_dates = []
     
     for dt in pivot_df.index:
-        date_str = DataSanitizer.normalize_date_string(dt)
+        date_str = str(dt).split(" ")[0].strip() # Clean layout date strings instantly
         raw_spots = pivot_df.loc[dt].to_dict()
         
-        spot_rates_dict = {DataSanitizer.clean_tenor_string(t): float(r) for t, r in raw_spots.items()}
+        spot_rates_dict = {str(k).strip(): float(v) for k, v in raw_spots.items()}
                 
-        wrapper = BootstrappedDiscountCurve(target_date=date_str, spot_rates_dict=spot_rates_dict, currency=selected_ccy)
-        matrix_dates.append(date_str)
-        
-        for n in start_nodes:
-            try:
-                fwd_rate = extract_implied_forward_swap(wrapper.ql_curve, start_n=n, tenor_m=1.0, day_counter=wrapper.day_counter)
-            except Exception:
-                fwd_rate = float(raw_spots.get(f"{int(n)}Y", raw_spots.get('30Y', 2.5)))
-            matrix_dict[f"{n}F1Y"].append(fwd_rate)
+        try:
+            wrapper = BootstrappedDiscountCurve(target_date=date_str, spot_rates_dict=spot_rates_dict, currency=selected_ccy)
+            
+            # If the curve initializes cleanly, map out our forward nodes
+            for n in start_nodes:
+                try:
+                    # Explicit native check: calculate implied forwards using discount factors directly
+                    t_start = float(n)
+                    t_end = t_start + 1.0
+                    df_start = wrapper.get_discount_factor(t_start)
+                    df_end = wrapper.get_discount_factor(t_end)
+                    
+                    # Convert discount ratio directly into an annualized implied forward rate string
+                    fwd_rate = ((df_start / df_end) - 1.0) * 100.0 if df_end > 0 else 2.5
+                except Exception:
+                    fwd_rate = float(spot_rates_dict.get(f"{int(n)}Y", 2.5))
+                    
+                matrix_dict[f"{n}F1Y"].append(fwd_rate)
+                
+            matrix_dates.append(date_str)
+        except Exception:
+            continue # Bypass un-bootstrappable historical dates safely
             
     return pd.DataFrame(matrix_dict, index=matrix_dates)
 

@@ -86,19 +86,34 @@ class DataSanitizer:
     
     @staticmethod
     def clean_tenor_string(raw_tenor):
-        if raw_tenor is None:
-            return "3M"
-        clean_token = str(raw_tenor).upper().strip()
-        if clean_token in ["0.25", "0.25Y"]:
-            return "3M"
-        match = re.match(r"(\d+)\s*([MY])", clean_token)
-        if match:
-            number, duration = match.groups()
-            return f"{number}{duration}"
-        return clean_token
+        """
+        Forces a raw tensor/tenor parameter into a single, clean uppercase string token.
+        🛡️ Failsafe: Automatically flattens lists, tuples, or nested structures.
+        """
+        # If the input itself is a list or tuple, extract the first entry safely
+        if isinstance(raw_tenor, (list, tuple)):
+            if len(raw_tenor) > 0:
+                raw_tenor = raw_tenor[0]
+            else:
+                return "1Y" # Global default fallback anchor string
+                
+        # Cast to a flat string and strip whitespaces/linebreaks
+        sanitized = str(raw_tenor).strip().upper()
+        
+        # Strip any extraneous bracket wrappers left over from pandas cell serialization
+        sanitized = sanitized.replace('[', '').replace(']', '').replace("'", "").replace('"', '')
+        
+        return sanitized
 
     @staticmethod
     def parse_tenor_to_years(tenor_str):
+        # 🛡️ FAILSAFE: If a full list or sequence slips through, extract the first entry safely
+        if isinstance(tenor_str, (list, tuple)):
+            if len(tenor_str) > 0:
+                tenor_str = tenor_str[0]
+            else:
+                return 1.0
+
         clean_token = DataSanitizer.clean_tenor_string(tenor_str)
         try:
             if "M" in clean_token:
@@ -107,19 +122,33 @@ class DataSanitizer:
                 return float(clean_token.replace("Y", ""))
             return float(clean_token)
         except ValueError:
-            return 1.0
+            # Fall back to isolating purely numeric digits if text parsing is jammed
+            try:
+                clean_num = "".join(filter(str.isdigit, clean_token))
+                return float(clean_num) if clean_num else 1.0
+            except Exception:
+                return 1.0
+
 
     @staticmethod
     def normalize_date_string(raw_date):
+        from datetime import datetime
         if not raw_date:
             return datetime.today().strftime("%Y-%m-%d")
-        clean_date = str(raw_date).strip().split(" ")
-        clean_date = clean_date.replace("/", "-")
+            
+        # 1. Cast to a primitive string, remove outer spaces, and fix slash marks immediately
+        raw_str = str(raw_date).strip().replace("/", "-")
+        
+        # 2. Split on spaces to strip out any trailing timestamp blocks safely, then take element 0
+        clean_date = raw_str.split(" ")[0]
+        
         try:
+            # Validate format compliance
             datetime.strptime(clean_date, "%Y-%m-%d")
             return clean_date
         except ValueError:
             return datetime.today().strftime("%Y-%m-%d")
+
 
     @staticmethod
     def calculate_z_score(current_residual, historical_residuals):
