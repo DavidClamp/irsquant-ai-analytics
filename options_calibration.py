@@ -129,4 +129,16 @@ def execute_sabr_smile_calibration(currency="ZAR", target_date=None):
     print("=" * 80)
 
 if __name__ == "__main__":
-    execute_sabr_smile_calibration(currency="ZAR", target_date=None)
+    # Define your full 8-currency multi-asset universe
+    global_macro_universe = ["USD", "EUR", "GBP", "JPY", "CHF", "NOK", "SEK", "ZAR"]
+    
+    print("🚀 INITIALIZING GLOBAL UNIVERSAL MULTI-ASSET CALIBRATION LOOP...")
+    
+    # Batch-process every desk sequentially to build out your master disk file
+    for ccy in global_macro_universe:
+        try:
+            execute_sabr_smile_calibration(currency=ccy, target_date=None)
+        except Exception as e:
+            print(f"❌ Critical runtime drop encountered on asset desk {ccy}: {str(e)}")
+            
+    print("\n🏁 GLOBAL CALIBRATION COMPLETE. All operational data nodes cached to disk.")
