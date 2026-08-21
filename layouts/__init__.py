@@ -1,15 +1,19 @@
 # layouts/__init__.py - PACKAGE INTERFACE EXPORTS
-from .diagnostics import layout_diagnostics
-from .scanner import layout_scanner
-from .execution import layout_execution
-from .swaption_analytics import layout_swaption_analytics
-from .cap_analytics import layout_cap_analytics
+from .diagnostics import render_diagnostics_layout, register_diagnostics_callbacks
+from .scanner import render_scanner_layout, register_scanner_callbacks
+from .execution import render_execution_layout, register_execution_callbacks
+from .swaption_analytics import render_swaption_layout
+from .cap_analytics import render_cap_layout, register_cap_callbacks
 
-# Explicitly maps and registers your layouts as a cleanly packaged financial presentation suite
+# Explicitly maps and registers your true layout engines as a clean suite
 __all__ = [
-    'layout_diagnostics', 
-    'layout_scanner', 
-    'layout_execution', 
-    'layout_swaption_analytics', 
-    'layout_cap_analytics'
+    'render_diagnostics_layout',
+    'register_diagnostics_callbacks',
+    'render_scanner_layout',
+    'register_scanner_callbacks',
+    'render_execution_layout',
+    'register_execution_callbacks',
+    'render_swaption_layout',
+    'render_cap_layout',
+    'register_cap_callbacks'
 ]
