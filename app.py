@@ -1,371 +1,100 @@
-# app.py - BLOCK 1: MAIN HEADERS, DATA INGESTION & CORES REGISTER
-import pandas as pd
+# app.py - MASTER PRESENTATION ROUTER & COUPLING ENGINE
 import dash
 import dash_bootstrap_components as dbc
-import plotly.graph_objects as go
-from dash import dcc, html, dash_table
-from dash.dependencies import Input, Output, State
-from plotly.subplots import make_subplots
+from dash import html, dcc, Input, Output
 
-# Ingest your sub-module analytics packages seamlessly
-import analytics as an
-from curves import BootstrappedDiscountCurve
-from execution import ExecutionOptimizer
+# Import layout presentation blueprints
+from layouts.diagnostics import render_diagnostics_layout, register_diagnostics_callbacks
+from layouts.scanner import render_scanner_layout, register_scanner_callbacks
+from layouts.swaption_analytics import render_swaption_layout
+from layouts.cap_analytics import render_cap_layout, register_cap_callbacks
+from layouts.execution import render_execution_layout, register_execution_callbacks
 
-import curves as curves_module
-from layouts import layout_diagnostics, layout_scanner, layout_execution, layout_swaption_analytics, layout_cap_analytics
-from vol_surfaces_core import VolSurfaceEngine
+# Import centralized options event pipelines
+from layouts.volatility_callbacks import register_global_volatility_pipelines
 
-# ==========================================
-# BLOCK 2 DATA INGESTION & DATA ARCHITECTURE REGIME
-# ==========================================
-master_df = pd.read_json('data/g4_curves.json')
-master_df['date'] = pd.to_datetime(master_df['date'])
-master_df['date_str'] = master_df['date'].dt.strftime('%Y-%m-%d')
+# Initialize the standalone terminal server with dark high-contrast themes
+app = dash.Dash(
+    __name__, 
+    external_stylesheets=[dbc.themes.CYBORG],
+    suppress_callback_exceptions=True
+)
+app.title = "IRSQuant NextGen Terminal"
 
-currencies = sorted(master_df['currency'].unique())
-all_dates = sorted(master_df['date_str'].unique())
-# Extracts the latest business day to establish "today's close" across your pricing engines
-max_date_str = all_dates[-1] if all_dates else None
-
-
-# ==========================================
-# INITIALISE APPLICATION APP SHELL FRAMEWORK
-# ==========================================
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.CYBORG], suppress_callback_exceptions=True)
-server = app.server
-
-# ==========================================================
-# IRSQUANT ACTIVE WORKSTATION NAVIGATION COMPONENT
-# ==========================================================
-navbar = dbc.NavbarSimple(
+# ==============================================================================
+# 🏛️ GLOBAL MASTER APP HOUSING FRAMEWORK
+# ==============================================================================
+app.layout = html.Div(
+    style={'backgroundColor': '#060709', 'minHeight': '100vh', 'padding': '20px'},
     children=[
-        # Crisp white for standard curves desk
-        dbc.NavItem(dbc.NavLink("Term Structure Snapshots", href="/", className="text-white px-3")),
+        # CENTRAL TERMINAL HEADER STRIP
+        dbc.Row(
+            className="border-bottom border-secondary pb-3 mb-4 align-items-center g-3",
+            children=[
+                dbc.Col(md=8, children=[
+                    html.H1("IRSQuant NextGen Analytics Terminal", className="text-success fw-bold m-0", style={'letterSpacing': '0.5px'}),
+                    html.P("Standalone QuantLib C++ Asset Workstation | Multi-Currency Relative-Value Desk", className="text-muted small m-0")
+                ]),
+                dbc.Col(md=4, className="text-md-end", children=[
+                    html.Div(className="p-2 bg-dark rounded border border-secondary d-inline-block text-start", children=[
+                        html.Small("System Core Status:", className="text-muted d-block small", style={'fontSize': '10px'}),
+                        html.Span("● QUANTLIB NATIVE ACTIVE", className="text-success fw-bold monospace small", style={'fontSize': '12px'})
+                    ])
+                ])
+            ]
+        ),
         
-        # Crisp white for scanner desk
-        dbc.NavItem(dbc.NavLink("IRSQuant Scanner", href="/page-scanner", className="text-white px-3")),
+        # MASTER NAVIGATION WORKSPACE TABS
+        dcc.Tabs(
+            id="master-workspace-tabs",
+            value="tab-diagnostics",
+            children=[
+                dcc.Tab(label="Curve Diagnostics", value="tab-diagnostics", className="custom-tab", selected_className="custom-tab-selected"),
+                dcc.Tab(label="RV Butterfly Scanner", value="tab-scanner", className="custom-tab", selected_className="custom-tab-selected"),
+                dcc.Tab(label="Swaption Vol Desks", value="tab-swaptions", className="custom-tab", selected_className="custom-tab-selected"),
+                dcc.Tab(label="Caplet Stripping Curves", value="tab-caplets", className="custom-tab", selected_className="custom-tab-selected"),
+                dcc.Tab(label="IRS Sizing Order Desk", value="tab-execution", className="custom-tab", selected_className="custom-tab-selected"),
+            ],
+            style={'height': '44px'}
+        ),
         
-        # Clear, bright asset-coded links that pop out
-        dbc.NavItem(dbc.NavLink("Swaption Analytics", href="/page-swaptions", className="text-warning fw-bold px-3")),
-        dbc.NavItem(dbc.NavLink("Cap/Floor Analytics", href="/page-caps", className="text-info fw-bold px-3")),
-        
-        # Crisp white for final execution block
-        dbc.NavItem(dbc.NavLink("Execution Optimizer Desk", href="/page-execution", className="text-white px-3")),
-    ],
-    brand="IRSQuant Active Analytics Platform", # Official Branding Locked In
-    brand_href="/",
-    color="dark",
-    dark=True,
-    className="mb-4 fw-bold border-bottom border-secondary"
+        # VIEW LAYER RECEPTACLE CONTAINER
+        html.Div(id="master-workspace-view-content", className="pt-4")
+    ]
 )
 
-app.layout = html.Div([
-    dcc.Location(id='url', refresh=False),
-    navbar,
-    dbc.Container(id='page-content', fluid=True, className="pb-5 text-white")
-], style={'backgroundColor': '#060709', 'minHeight': '100vh'})  # Deepened charcoal background tint
+# ==============================================================================
+# 🔄 MASTER DESK PACKAGING INTERFACES & REGISTRATION CALLBACKS
+# ==============================================================================
+register_diagnostics_callbacks(app)
+register_scanner_callbacks(app)
+register_cap_callbacks(app)
+register_execution_callbacks(app)
 
-# ==========================================
-# URL INTERFACE CONTROLLER ROUTER MATRIX
-# ==========================================
-@app.callback(
-    Output('page-content', 'children'), 
-    [Input('url', 'pathname')]
-)
-def display_page(pathname):
-    """Primary application URL router mapping views to standalone institutional panels."""
-    if pathname == '/page-scanner':
-        return layout_scanner(currencies)
-    
-    elif pathname == '/page-swaptions':
-        # Directs traffic straight to the new 3D SABR asset grid view
-        return layout_swaption_analytics(currencies)
-        
-    elif pathname == '/page-caps':
-        # Directs traffic straight to the separate linear cap strip desk
-        return layout_cap_analytics(currencies)
-        
-    elif pathname == '/page-execution':
-        return layout_execution(currencies)
-        
-    # Standard workspace fallback home page view (Diagnostics)
-    return layout_diagnostics(currencies, all_dates)
-
-# ==========================================
-# PRESENTATION INTERFACE LAYER CALL-BACK LOOPS
-# ==========================================
+# Register decoupled background 3D volatility surface pipelines
+register_global_volatility_pipelines(app)
 
 @app.callback(
-    [Output('diag-term-structure-snapshot', 'figure'), Output('diag-matrix-heatmap', 'figure')],
-    [Input('diag-ccy-dropdown', 'value'), Input('diag-date-dropdown', 'value')]
+    Output("master-workspace-view-content", "children"),
+    Input("master-workspace-tabs", "value")
 )
-def render_snapshot_curves(selected_ccy, selected_date):
-    if not selected_date: return go.Figure(), go.Figure()
-    day_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date_str'] == str(selected_date))].copy()
-    if day_df.empty: return go.Figure(), go.Figure()
-    
-    tenor_label_map = {0.25:'3M', 1.0:'1Y', 2.0:'2Y', 3.0:'3Y', 4.0:'4Y', 5.0:'5Y', 6.0:'6Y', 7.0:'7Y', 8.0:'8Y', 9.0:'9Y', 10.0:'10Y', 12.0:'12Y', 15.0:'15Y', 20.0:'20Y', 25.0:'25Y', 30.0:'30Y'}
-    raw_spots = day_df.set_index('tenor')['rate'].to_dict()
-    
-    # FIXED: Safely cleans "1Y" -> 1.0 before performing the dictionary lookup
-    spot_rates_dict = {}
-    for t, r in raw_spots.items():
-        try:
-            # Strip out any 'Y' characters and cast to float for map matching
-            numeric_key = float(str(t).upper().replace('Y', '').strip())
-            if numeric_key in tenor_label_map:
-                spot_rates_dict[tenor_label_map[numeric_key]] = float(r)
-        except ValueError:
-            continue
+def route_workspace_view_panels(active_tab):
+    """
+    Renders presentation screens dynamically based on the selected workspace tab.
+    """
+    if active_tab == "tab-diagnostics":
+        return render_diagnostics_layout()
+    elif active_tab == "tab-scanner":
+        return render_scanner_layout()
+    elif active_tab == "tab-swaptions":
+        return render_swaption_layout()
+    elif active_tab == "tab-caplets":
+        return render_cap_layout()
+    elif active_tab == "tab-execution":
+        return render_execution_layout()
+    return html.Div("View component missing context parameters.", className="text-danger monospace small")
 
-    
-    curve = BootstrappedDiscountCurve(target_date=str(selected_date), spot_rates_dict=spot_rates_dict)
-    
-    fig_line = go.Figure()
-    tenors = sorted(list(curve.spot_rates.keys()), key=lambda x: float(x.replace('M', ''))/12 if 'M' in x else float(x.replace('Y', '')))
-    rates = [curve.spot_rates[t] for t in tenors]
-    
-    fig_line.add_trace(go.Scatter(x=tenors, y=rates, mode='lines+markers', line_shape='hv', line=dict(color='#ffc107', width=3)))
-    fig_line.update_layout(
-        title=f"Discrete Step Forward Snapshots - {selected_ccy} ({selected_date})", 
-        template='plotly_dark', 
-        paper_bgcolor='rgba(0,0,0,0)', 
-        plot_bgcolor='rgba(0,0,0,0)'
-    )
-    fig_line.update_yaxes(title="Yield Rate (%)", tickformat="", gridcolor='#2d2d2d')
-    fig_line.update_xaxes(title="Maturity Tenor Horizon", gridcolor='#2d2d2d')
-
-    # Fetch the block matrix layout
-    grid_df = an.generate_forward_block_matrix(curve)
-    
-    # FIXED: Clean out any 0.0 or missing boundary values using an institutional fallback pass
-    # This checks for absolute 0.0 values or missing entries in the array and replaces them
-    # with the 30Y spot rate to ensure the visual grid remains flawless.
-    clean_z = grid_df.values.copy()
-    fallback_rate = rates[-1] if rates else 2.5
-    clean_z[clean_z <= 0.0] = fallback_rate
-    
-    fig_heat = go.Figure(data=go.Heatmap(
-        z=clean_z, 
-        x=grid_df.columns, 
-        y=grid_df.index, 
-        colorscale='Cividis',
-        colorbar=dict(title="Forward Yield (%)", thickness=15)
-    ))
-    
-    fig_heat.update_layout(
-        title=dict(text=f"Continuous Implied Forward Block Matrix Surface Grid ({selected_ccy} %)", font=dict(color='#ff7300', size=14)),
-        template='plotly_dark', 
-        paper_bgcolor='rgba(0,0,0,0)', 
-        plot_bgcolor='rgba(0,0,0,0)',
-        xaxis=dict(title="Forward Length (Tenor)"),
-        yaxis=dict(title="Forward Start (Maturity)"),
-        margin=dict(l=50, r=10, t=50, b=50)
-    )
-    
-    return fig_line, fig_heat
-
-
-@app.callback(
-    [Output('scan-anomaly-canvas', 'figure'), Output('scan-table-container', 'children')],
-    [Input('run-scan-btn', 'n_clicks')],
-    [State('scan-ccy-dropdown', 'value'), State('scan-type-toggle', 'value')]
-)
-def execute_interface_regression_sweep(n_clicks, selected_ccy, selected_scan_type):
-    if n_clicks is None or n_clicks == 0:
-        return go.Figure(), html.Div("Configure parameters above and click 'Execute Curve Matrix Sweep'.", className="text-muted p-3 text-center")
-        
-    f_matrix = an.build_forward_permutation_matrix(master_df, selected_ccy=selected_ccy)
-    rank_df, series_storage = an.run_systematic_condor_scan(f_matrix) if selected_scan_type == 'CONDOR' else an.run_systematic_butterfly_scan(f_matrix)
-    
-    if rank_df.empty: return go.Figure(), html.Div("Empty DataFrame exception.", className="text-danger p-3")
-    
-    best_structure_name = rank_df['Structure'].iloc[0]
-    best_series = series_storage[best_structure_name]
-    
-    fig = make_subplots(rows=1, cols=2, column_widths=[0.6, 0.4])
-    fig.add_trace(go.Scatter(x=best_series.index, y=best_series.values*10000, mode='lines+markers', line_shape='hv', line=dict(color='#ffc107', width=2)), row=1, col=1)
-    fig.add_trace(go.Histogram(x=best_series.values*10000, marker_color='#0d6efd'), row=1, col=2)
-    fig.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
-    fig.update_yaxes(title="Residual Dislocation (bps)", tickformat=".1f", row=1, col=1)
-    fig.update_xaxes(title="Historical Timeline Axis", type='category', row=1, col=1)
-    fig.update_xaxes(title="Frequency Count", tickformat="d", row=1, col=2)
-    
-    column_formatting = {'Structure':'Structure Permutation', 'Hedge Ratio (Short)':'Hedge Ratio (Short)', 'Hedge Ratio (Long)':'Hedge Ratio (Long)', 'R-Squared':'R-Squared (R²)', 'Current Residual (bps)':'Current Residual (bps)', '1Y Horizon Roll (bps)':'1Y Horizon Roll (bps)', 'Z-Score (Outlier)':'Z-Score Rank'}
-    table = dash_table.DataTable(data=rank_df.to_dict('records'), columns=[{"name": column_formatting.get(i, i), "id": i} for i in rank_df.columns], sort_action="native", page_size=10, style_header={'backgroundColor': '#212529', 'color': '#ffc107', 'fontWeight': 'bold'}, style_cell={'backgroundColor': '#1a1a1a', 'color': '#f8f9fa', 'textAlign': 'center'})
-    return fig, table
-# BLOCK 3: NON-LINEAR OPTIONS & CAPITAL ALLOCATION CALLBACK DESK
-
-@app.callback(
-    [Output('vol-smile-canvas', 'figure'), Output('vol-grid-canvas', 'figure'), Output('vol-matrix-container', 'children')],
-    [Input('vol-ccy-dropdown', 'value'), Input('vol-date-dropdown', 'value'), Input('vol-expiry-dropdown', 'value'), Input('vol-tenor-dropdown', 'value'), Input('vol-atm-input', 'value')]
-)
-def process_volatility_pricing_matrix(selected_ccy, selected_date, expiry_T, tenor_m, atm_vol):
-    if not selected_date or atm_vol is None: return go.Figure(), go.Figure(), html.Div("Awaiting target parameters...", className="text-muted p-2")
-    ccy_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date_str'] == str(selected_date))].copy()
-    if ccy_df.empty: return go.Figure(), go.Figure(), html.Div("Data record empty.", className="text-danger p-2")
-    
-    tenor_label_map = {0.25:'3M', 1.0:'1Y', 2.0:'2Y', 3.0:'3Y', 4.0:'4Y', 5.0:'5Y', 6.0:'6Y', 7.0:'7Y', 8.0:'8Y', 9.0:'9Y', 10.0:'10Y', 12.0:'12Y', 15.0:'15Y', 20.0:'20Y', 25.0:'25Y', 30.0:'30Y'}
-    raw_spots = ccy_df.set_index('tenor')['rate'].to_dict()
-    spot_rates_dict = {tenor_label_map[float(t)]: float(r) for t, r in raw_spots.items() if float(t) in tenor_label_map}
-    
-    curve = BootstrappedDiscountCurve(target_date=str(selected_date), spot_rates_dict=spot_rates_dict)
-    p_start, p_end = curve.get_discount_factor(expiry_T), curve.get_discount_factor(expiry_T + tenor_m)
-    annuity = curve.get_annuity_factor(start_n=expiry_T, tenor_m=tenor_m, payment_freq=1.0)
-    if annuity == 0.0: return go.Figure(), go.Figure(), html.Div("Annuity collapse.", className="text-danger p-2")
-    
-    forward_swap = ((p_start - p_end) / annuity) * 100.0
-    strikes_dict, quad_vols, sabr_vols = Black76Engine.generate_sabr_vs_quadratic_smiles(forward_swap, float(atm_vol), float(expiry_T))
-    
-    table_records, smile_strikes, smile_quad_y, smile_sabr_y = [], [], [], []
-    for label in ["-200bps", "-100bps", "-50bps", "ATM", "+50bps", "+100bps", "+200bps"]:
-        K, v_sabr = strikes_dict[label], sabr_vols[label]
-        smile_strikes.append(K * 100.0)
-        smile_quad_y.append(quad_vols[label] * 100.0)
-        smile_sabr_y.append(v_sabr * 100.0)
-        call_prem = Black76Engine.calculate_swaption_price(forward_swap/100.0, K, annuity, v_sabr, expiry_T, option_type='CALL')
-        put_prem = Black76Engine.calculate_swaption_price(forward_swap/100.0, K, annuity, v_sabr, expiry_T, option_type='PUT')
-        table_records.append({'Strike Offset': label, 'Absolute Strike (%)': round(K * 100.0, 3), 'SABR Implied Vol (%)': round(v_sabr * 100.0, 2), 'Call Premium (bps)': round(call_prem * 10000.0, 1), 'Put Premium (bps)': round(put_prem * 10000.0, 1)})
-    
-    smile_fig = go.Figure()
-    smile_fig.add_trace(go.Scatter(x=smile_strikes, y=smile_quad_y, mode='lines', line=dict(color='#ffc107', width=2, dash='dash'), name='Quadratic'))
-    smile_fig.add_trace(go.Scatter(x=smile_strikes, y=smile_sabr_y, mode='lines+markers', line=dict(color='#0d6efd', width=3.5, shape='spline'), name='SABR'))
-    smile_fig.update_layout(title=dict(text=f"SABR vs Parametric Skew (ATM = {forward_swap:.3f}%)", font=dict(size=12)), template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-    
-    vol_matrix_df = Black76Engine.generate_volatility_term_structure_grid(float(atm_vol))
-    grid_fig = go.Figure(data=go.Heatmap(z=vol_matrix_df.values, x=vol_matrix_df.columns, y=vol_matrix_df.index, colorscale='Viridis'))
-    grid_fig.update_layout(title=dict(text="Institutional 3D Volatility Surface Heatmap", font=dict(size=12)), template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-    
-    table_cols = [{"name": i, "id": i} for i in ['Strike Offset', 'Absolute Strike (%)', 'SABR Implied Vol (%)', 'Call Premium (bps)', 'Put Premium (bps)']]
-    table_grid = dash_table.DataTable(data=table_records, columns=table_cols, style_header={'backgroundColor': '#212529', 'color': '#ffc107'}, style_cell={'backgroundColor': '#1a1a1a', 'color': '#f8f9fa'})
-    return smile_fig, grid_fig, table_grid
-
-# ==========================================
-# PART 7c: PRODUCTION-READY INTERBANK SWAP NOTIONAL EXECUTION DESK CALLBACK
-# ==========================================
-@app.callback(
-    [Output('exec-carry-history-canvas', 'figure'), Output('exec-notional-container', 'children')],
-    [Input('run-exec-btn', 'n_clicks')],
-    [State('exec-ccy-dropdown', 'value'), State('exec-struct-string', 'value'), 
-     State('exec-risk-input', 'value'), State('exec-ratio-short', 'value'), State('exec-ratio-long', 'value')]
-)
-def process_trade_notional_optimization(n_clicks, selected_ccy, structure_string, risk_amount, r_short, r_long):
-    if n_clicks is None or n_clicks == 0:
-        return go.Figure(), html.Div("Configure risk parameters on the left panel (e.g. enter 5000 or 10000 for PVBP) and click 'Optimize Execution Notional'.", className="text-muted text-center p-3")
-        
-    if risk_amount is None or not structure_string or r_short is None or r_long is None:
-        return go.Figure(), html.Div("Target variables or weight ratio entries missing.", className="text-warning text-center p-3")
-        
-    f_matrix = an.build_forward_permutation_matrix(master_df, selected_ccy=selected_ccy)
-    
-    latest_date = master_df[master_df['currency'] == selected_ccy]['date_str'].max()
-    day_df = master_df[(master_df['currency'] == selected_ccy) & (master_df['date_str'] == latest_date)].copy()
-    
-    tenor_label_map = {0.25:'3M', 1.0:'1Y', 2.0:'2Y', 3.0:'3Y', 4.0:'4Y', 5.0:'5Y', 6.0:'6Y', 7.0:'7Y', 8.0:'8Y', 9.0:'9Y', 10.0:'10Y', 12.0:'12Y', 15.0:'15Y', 20.0:'20Y', 25.0:'25Y', 30.0:'30Y'}
-    raw_spots = day_df.set_index('tenor')['rate'].to_dict()
-    
-    # FIXED: Safely cleans and parses string keys like "1Y" into numeric float indexes
-    spot_rates_dict = {}
-    for t, r in raw_spots.items():
-        try:
-            numeric_key = float(str(t).upper().replace('Y', '').strip())
-            if numeric_key in tenor_label_map:
-                spot_rates_dict[tenor_label_map[numeric_key]] = float(r)
-        except ValueError:
-            continue
-
-    curve_obj = BootstrappedDiscountCurve(target_date=str(latest_date), spot_rates_dict=spot_rates_dict)
-    
-    try:
-        short_leg, mid_leg, long_leg = "1F1Y", "2F1Y", "3F1Y"
-        
-        ticket = ExecutionOptimizer.calculate_front_office_ticket(curve_obj, risk_amount, short_leg, mid_leg, long_leg, r_short, r_long)
-        fig_carry = ExecutionOptimizer.generate_historical_carry_chart(f_matrix, short_leg, mid_leg, long_leg, float(r_short), float(r_long))
-        
-        # Build the institutional transaction layout summary block with optimized text visibility
-        output_display = html.Div([
-            html.Div([
-                html.H5([
-                    html.Span("📋 Net Structured Butterfly Position Spread: ", className="text-light"),
-                    html.Span(f"{ticket['net_spread_bps']:.2f} bps", className="text-info fw-bold")
-                ], className="mb-0 text-center")
-            ], className="p-3 bg-dark border border-secondary rounded mb-4"),
-
-            
-            dbc.Row([
-                dbc.Col([
-                    html.Div([
-                        html.Span("🔴 PAY FIXED (Short Leg)", className="badge bg-danger mb-2 d-block text-start fs-6"),
-                        html.Div([html.Strong("Contract Handle: ", className="text-white"), html.Span(f"{short_leg}", className="float-end text-light")]),
-                        html.Div([html.Strong("Notional Size: ", className="text-white"), html.Span(f"${ticket['notional_short_mm']:.2f}M", className="float-end text-warning fw-bold")]),
-                        html.Div([html.Strong("Forward Swap Rate: ", className="text-white"), html.Span(f"{ticket['rate_short']:.3f}%", className="float-end text-info")])
-                    ], className="p-3 bg-opacity-10 bg-danger rounded border border-danger")
-                ], width=4),
-                dbc.Col([
-                    html.Div([
-                        html.Span("🟢 RECEIVE FIXED (Belly Core)", className="badge bg-success mb-2 d-block text-start fs-6"),
-                        html.Div([html.Strong("Contract Handle: ", className="text-white"), html.Span(f"{mid_leg}", className="float-end text-light")]),
-                        html.Div([html.Strong("Notional Size: ", className="text-white"), html.Span(f"${ticket['notional_mid_mm']:.2f}M", className="float-end text-warning fw-bold")]),
-                        html.Div([html.Strong("Forward Swap Rate: ", className="text-white"), html.Span(f"{ticket['rate_mid']:.3f}%", className="float-end text-info")])
-                    ], className="p-3 bg-opacity-10 bg-success rounded border border-success")
-                ], width=4),
-                dbc.Col([
-                    html.Div([
-                        html.Span("🔴 PAY FIXED (Long Leg)", className="badge bg-danger mb-2 d-block text-start fs-6"),
-                        html.Div([html.Strong("Contract Handle: ", className="text-white"), html.Span(f"{long_leg}", className="float-end text-light")]),
-                        html.Div([html.Strong("Notional Size: ", className="text-white"), html.Span(f"${ticket['notional_long_mm']:.2f}M", className="float-end text-warning fw-bold")]),
-                        html.Div([html.Strong("Forward Swap Rate: ", className="text-white"), html.Span(f"{ticket['rate_long']:.3f}%", className="float-end text-info")])
-                    ], className="p-3 bg-opacity-10 bg-danger rounded border border-danger")
-                ], width=4)
-            ], className="mb-3 g-3")
-        ])
-
-        return fig_carry, output_display
-    except Exception as e:
-        return go.Figure(), html.Div(f"Execution pricing mismatch break: {str(e)}", className="text-danger p-2")
-  
-
-# ==========================================
-# 3D IRO SWAPTION VOLATILITY CALL DESK
-# ==========================================
-@app.callback(
-    [Output('swaption-3d-canvas', 'figure'),
-     Output('swaption-sabr-parameters-box', 'children')],
-    [Input('swaption-ccy-dropdown', 'value')]    
-)
-
-def update_swaption_volatility_mesh(selected_ccy):
-    """Calculates the SABR calibrated mesh, defaulting to the latest business close day."""
-    if not selected_ccy:
-        selected_ccy = "USD"
-        
-    # Passing target_date=None forces VolSurfaceEngine to automatically 
-    # find and load the maximum available date string from 5-year file
-    fig, params = VolSurfaceEngine.get_swaption_surface(selected_ccy, target_date=None)
-    
-    params_layout = html.Div([
-        html.Div([html.Strong("Backbone (Beta): "), html.Span(f"{params['beta']:.2f}", className="float-end text-warning")]),
-        html.Div([html.Strong("Initial Vol (Alpha): "), html.Span(f"{params['alpha']:.3f}", className="float-end text-info")]),
-        html.Div([html.Strong("Risk Skew (Rho): "), html.Span(f"{params['rho']:.2f}", className="float-end text-danger fw-bold")]),
-        html.Div([html.Strong("Vol-of-Vol (Nu): "), html.Span(f"{params['nu']:.3f}", className="float-end text-success")])
-    ], className="small d-grid gap-2")
-    
-    return fig, params_layout
-
-# ==========================================
-# 3D CAP/FLOORLET LINEAR STRIP CALL DESK
-# ==========================================
-@app.callback(
-    Output('cap-3d-canvas', 'figure'),
-    [Input('cap-ccy-dropdown', 'value')] # Cleaned: Purged nonexistent date-picker input
-)
-def update_cap_volatility_mesh(selected_ccy):
-    """Calculates and streams the flat caplet pricing mesh for the latest data close."""
-    if not selected_ccy:
-        selected_ccy = "USD"
-        
-    return VolSurfaceEngine.get_cap_surface(selected_ccy, target_date=None)
-
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    print("🚀 Initializing Master IRSQuant Core Router Nodes...")
+    print("🌍 Terminal Link Ready: Point your browser to http://127.0.0.1:8050")
+    app.run_server(debug=True, port=8050)

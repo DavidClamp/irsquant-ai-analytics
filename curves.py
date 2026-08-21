@@ -1,134 +1,88 @@
-# curves.py - QUANTLIB DUAL-CURVE ENGINE WITH LIQUIDITY IMPUTATION FILTERING
+# curves.py - LAYER 1 CORE: PIECEWISE CONTINUOUS LOG-LINEAR YIELD BOOTSTRAPPER
+import json
+import numpy as np
+import pandas as pd
 import QuantLib as ql
+from utils import DataSanitizer
 
 class BootstrappedDiscountCurve:
     """
-    Leverages QuantLib C++ engines to execute calendar-aware curve bootstrapping.
-    Features robust data-cleaning layers to intercept missing or stale data points
-    across illiquid currency segments (ZAR, SEK, NOK).
+    Ingests raw point-source spot rates, sanitizes non-standard tenor tokens, 
+    and wraps native QuantLib C++ loaders to build a continuous piecewise log-linear yield structure.
     """
-    # Institutional Asset Registry Switchboard - 8 Currencies Unified
-    _REGISTRY = {
-        "USD": {"calendar": ql.UnitedStates(ql.UnitedStates.GovernmentBond), "day_count": ql.Actual360(), "index": ql.Sofr},
-        "EUR": {"calendar": ql.TARGET(), "day_count": ql.Actual360(), "index": ql.Euribor3M},
-        "GBP": {"calendar": ql.UnitedKingdom(ql.UnitedKingdom.Exchange), "day_count": ql.Actual365Fixed(), "index": ql.Sonia},
-        "JPY": {"calendar": ql.Japan(), "day_count": ql.Actual360(), "index": ql.Tona},
-        
-        "CHF": {"calendar": ql.Switzerland(), "day_count": ql.Actual360(), "index": ql.Saron},
-        "NOK": {"calendar": ql.Norway(), "day_count": ql.Actual360(), "index": lambda: ql.IborIndex("Nowa", ql.Period(3, ql.Months), 2, ql.CHFCurrency(), ql.Norway(), ql.ModifiedFollowing, False, ql.Actual360())},
-        "SEK": {"calendar": ql.Sweden(), "day_count": ql.Actual360(), "index": lambda: ql.IborIndex("Stibor", ql.Period(3, ql.Months), 2, ql.EURCurrency(), ql.Sweden(), ql.ModifiedFollowing, False, ql.Actual360())},
-        "ZAR": {"calendar": ql.SouthAfrica(), "day_count": ql.Actual365Fixed(), "index": lambda: ql.IborIndex("Jibar", ql.Period(3, ql.Months), 2, ql.ZARCurrency(), ql.SouthAfrica(), ql.ModifiedFollowing, False, ql.Actual365Fixed())}
-    }
-
     def __init__(self, target_date, spot_rates_dict, currency="USD"):
-        self.target_date = str(target_date)
-        self.raw_rates = spot_rates_dict
-        self.currency = currency.upper().strip()
+        self.target_date_str = DataSanitizer.normalize_date_string(target_date)
+        self.currency = str(currency).upper().strip()
         
-        if self.currency not in self._REGISTRY:
-            self.currency = "USD"
-            
-        meta = self._REGISTRY[self.currency]
+        # 1. Map global institutional asset conventions and specific settlement calendars
+        self.registry = {
+            "USD": {"calendar": ql.UnitedStates(ql.UnitedStates.GovernmentBond), "day_count": ql.Actual360(), "index": ql.Sofr},
+            "EUR": {"calendar": ql.TARGET(), "day_count": ql.Actual360(), "index": ql.Euribor3M},
+            "GBP": {"calendar": ql.UnitedKingdom(ql.UnitedKingdom.Exchange), "day_count": ql.Actual365Fixed(), "index": ql.Sonia},
+            "JPY": {"calendar": ql.Japan(), "day_count": ql.Actual360(), "index": ql.Tona},
+            "CHF": {"calendar": ql.Switzerland(), "day_count": ql.Actual360(), "index": ql.Saron},
+            "NOK": {"calendar": ql.Norway(), "day_count": ql.Actual360(), "index": lambda: ql.IborIndex("Nowa", ql.Period(3, ql.Months), 2, ql.CHFCurrency(), ql.Norway(), ql.ModifiedFollowing, False, ql.Actual360())},
+            "SEK": {"calendar": ql.Sweden(), "day_count": ql.Actual360(), "index": lambda: ql.IborIndex("Stibor", ql.Period(3, ql.Months), 2, ql.EURCurrency(), ql.Sweden(), ql.ModifiedFollowing, False, ql.Actual360())},
+            "ZAR": {"calendar": ql.SouthAfrica(), "day_count": ql.Actual365Fixed(), "index": lambda: ql.IborIndex("Jibar", ql.Period(3, ql.Months), 2, ql.ZARCurrency(), ql.SouthAfrica(), ql.ModifiedFollowing, False, ql.Actual365Fixed())}
+        }
+        
+        meta = self.registry.get(self.currency, self.registry["USD"])
         self.calendar = meta["calendar"]
         self.day_counter = meta["day_count"]
-        self._index_class = meta["index"]
+        self.base_index = meta["index"]() if not callable(meta["index"]) else meta["index"]()
         
-        # Parse time-series anchor string ('YYYY-MM-DD')
-        y, m, d = map(int, self.target_date.split('-'))
-        self.ql_date = ql.Date(d, m, y)
-        ql.Settings.instance().evaluationDate = self.ql_date
+        # 2. Set evaluation date anchor in the native C++ singleton engine
+        y, m, d = map(int, self.target_date_str.split('-'))
+        self.ql_eval_date = ql.Date(d, m, y)
+        ql.Settings.instance().evaluationDate = self.ql_eval_date
         
-        # 1. RUN LIQUIDITY SANITIZATION AND IMPUTATION LAYERS
-        self.sanitized_rates = self._sanitize_and_patch_rates()
-        
-        # 2. CONSTRUCT DEFENSIVE C++ CURVE BLOCK
-        self.ql_curve = self._build_quantlib_curve()
+        # 3. Boot the piecewise continuous term assembler
+        self.ql_curve = self._bootstrap_curve(spot_rates_dict)
 
-    def _sanitize_and_patch_rates(self):
-        """
-        Intercepts and reconstructs missing or corrupted data points (rates <= 0.0)
-        using structural linear imputation to safeguard curve pricing integrity.
-        """
-        # Hard chronological tenor sequencing array map
-        master_timeline = ["3M", "1Y", "2Y", "3Y", "4Y", "5Y", "7Y", "10Y", "15Y", "20Y", "25Y", "30Y"]
-        numeric_terms = [0.25, 1.0, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0, 30.0]
-        
-        # Load active data vectors, filtering out invalid string or null mappings
-        cleaned_map = {}
-        for t in master_timeline:
-            val = self.raw_rates.get(t, self.raw_rates.get(f"{t}Y", 0.0))
-            cleaned_map[t] = float(val) if float(val) > 0.0 else 0.0
-
-        # --- EXTRACT BASELINE ANCHORS FOR IMPUTATION ---
-        valid_points = [(numeric_terms[i], cleaned_map[t]) for i, t in enumerate(master_timeline) if cleaned_map[t] > 0.0]
-        
-        # Absolute structural fallback shield if an entire data block drops out completely
-        if not valid_points:
-            fallback_yield = 3.0
-            return {t: fallback_yield for t in master_timeline}
-            
-        # --- LINEAR DATA GAP BACKFILL ROUTINE ---
-        final_patched_rates = {}
-        for i, t in enumerate(master_timeline):
-            t_num = numeric_terms[i]
-            
-            if cleaned_map[t] > 0.0:
-                final_patched_rates[t] = cleaned_map[t]
-            else:
-                # Node data has dropped out! Search for bounding parameters to interpolate a proxy
-                shorter_pts = [p for p in valid_points if p[0] < t_num]
-                longer_pts = [p for p in valid_points if p[0] > t_num]
-                
-                if shorter_pts and longer_pts:
-                    # Case A: Mid-curve interpolation between nearest active nodes
-                    x1, y1 = shorter_pts[-1]
-                    x2, y2 = longer_pts[0]
-                    imputed_rate = y1 + (t_num - x1) * (y2 - y1) / (x2 - x1)
-                elif shorter_pts:
-                    # Case B: Extreme long-end tail drop out (Flat-Line Tail Extension)
-                    imputed_rate = shorter_pts[-1][1]
-                else:
-                    # Case C: Short-end asset dropout (Front-end flat line to first active point)
-                    imputed_rate = longer_pts[0][1]
-                    
-                final_patched_rates[t] = round(max(0.01, imputed_rate), 4)
-                
-        return final_patched_rates
-
-    def _build_quantlib_curve(self):
-        """Assembles internal rate helpers using the pristine imputed dataset map."""
-        rate_helpers = []
+    def _bootstrap_curve(self, spot_rates_dict):
         settlement_days = 2
+        rate_helpers = []
         
-        # Instantiate base overnight index to link payment legs
-        base_index = self._index_class()
-        
-        for tenor_str, rate_val in self.sanitized_rates.items():
-            quote_handle = ql.QuoteHandle(ql.SimpleQuote(rate_val / 100.0))
-            
-            if 'M' in tenor_str:
-                period = ql.Period(int(tenor_str.replace('M', '')), ql.Months)
-            else:
-                period = ql.Period(int(tenor_str.replace('Y', '')), ql.Years)
+        for raw_tenor, rate_val in spot_rates_dict.items():
+            clean_rate = float(rate_val)
+            if clean_rate <= 0.0:
+                continue  # Filter missing gaps/liquidity drops to protect matrix solver
                 
-            if tenor_str == "3M":
-                helper = ql.DepositRateHelper(quote_handle, period, settlement_days, 
-                                              self.calendar, ql.ModifiedFollowing, 
-                                              False, self.day_counter)
+            quote_handle = ql.QuoteHandle(ql.SimpleQuote(clean_rate / 100.0 if clean_rate > 1.0 else clean_rate))
+            clean_tenor_str = DataSanitizer.clean_tenor_string(raw_tenor)
+            
+            # Map clean token string variables to explicit C++ Period dimensions
+            if 'M' in clean_tenor_str:
+                period = ql.Period(int(clean_tenor_str.replace('M', '')), ql.Months)
             else:
-                helper = ql.SwapRateHelper(quote_handle, period, self.calendar, 
-                                           ql.Annual, ql.Unadjusted, 
-                                           self.day_counter, base_index)
+                period = ql.Period(int(clean_tenor_str.replace('Y', '')), ql.Years)
+                
+            # Direct nodes to relevant interbank short-term or term structural helpers
+            if clean_tenor_str == "3M" and self.currency not in ["GBP", "ZAR"]:
+                helper = ql.DepositRateHelper(quote_handle, period, settlement_days, self.calendar, 
+                                             ql.ModifiedFollowing, False, self.day_counter)
+            else:
+                helper = ql.SwapRateHelper(quote_handle, period, self.calendar, ql.Annual, 
+                                          ql.Unadjusted, self.day_counter, self.base_index)
             rate_helpers.append(helper)
             
-        curve_settlement_date = self.calendar.advance(self.ql_date, ql.Period(settlement_days, ql.Days))
+        if not rate_helpers:
+            raise ValueError(f"Bootstrapping failed: Data vectors for {self.currency} on {self.target_date_str} are completely null.")
+            
+        curve_settlement_date = self.calendar.advance(self.ql_eval_date, ql.Period(settlement_days, ql.Days))
+        
+        # Enforce strict log-linear continuous interpolation over discount factors
         return ql.PiecewiseLogLinearDiscount(curve_settlement_date, rate_helpers, self.day_counter)
 
     def get_discount_factor(self, maturity_years):
-        """Queries the underlying QuantLib engine to pull explicit discount counts."""
-        try:
-            days = int(float(maturity_years) * 365.25)
-            target_node_date = self.ql_date + ql.Period(days, ql.Days)
-            return self.ql_curve.discount(target_node_date)
-        except Exception:
-            return 1.0 / (1.0 + 0.03 * float(maturity_years))
+        """
+        Calculates a continuous discount factor target using raw year float coordinates.
+        """
+        target_date = self.ql_eval_date + ql.Period(int(float(maturity_years) * 365.25), ql.Days)
+        return self.ql_curve.discount(target_date)
+
+    def get_zero_rate(self, maturity_years):
+        """
+        Extracts continuous zero-coupon rates for yield curve plotting panels.
+        """
+        return self.ql_curve.zeroRate(float(maturity_years), ql.Continuous, ql.Annual).rate() * 100.0
