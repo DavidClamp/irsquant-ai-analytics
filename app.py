@@ -97,4 +97,4 @@ def route_workspace_view_panels(active_tab):
 if __name__ == "__main__":
     print("🚀 Initializing Master IRSQuant Core Router Nodes...")
     print("🌍 Terminal Link Ready: Point your browser to http://127.0.0.1:8050")
-    app.run_server(debug=True, port=8050)
+    app.run(debug=True, port=8050)
