@@ -1,18 +1,138 @@
+# utils.py - STREAMLINED IRSQUANT ANALYTICS UTILITY LAYER
+import re
+import json
 import QuantLib as ql
 import pandas as pd
 import numpy as np
-import re
-from .models import HistoricalRate, Trade
+from datetime import datetime
 
+def get_cleaned_yield_curve(target_date, currency="USD"):
+    """
+    Fetches raw spot rates directly from the local JSON data repository
+    and bootstraps a calendar-perfect QuantLib Piecewise Log-Linear Discount Curve.
+    """
+    ccy = str(currency).upper().strip()
+    
+    try:
+        with open("data/g4_curves.json", "r") as f:
+            raw_data = json.load(f)
+        df_all = pd.DataFrame(raw_data)
+        df = df_all[(df_all['currency'] == ccy) & (df_all['date'] == str(target_date))][["tenor", "rate"]]
+    except Exception:
+        return None
 
-def can_access_butterfly_analytics(user):
+    if df.empty:
+        return None
+
+        
+    # [The rest of your operational QuantLib helper loops continue identically below...]
+
+    # --- ASSET REGISTRY SWITCHBOARD ---
+    registry = {
+        "USD": {"calendar": ql.UnitedStates(ql.UnitedStates.GovernmentBond), "day_count": ql.Actual360(), "index": ql.Sofr},
+        "EUR": {"calendar": ql.TARGET(), "day_count": ql.Actual360(), "index": ql.Euribor3M},
+        "GBP": {"calendar": ql.UnitedKingdom(ql.UnitedKingdom.Exchange), "day_count": ql.Actual365Fixed(), "index": ql.Sonia},
+        "JPY": {"calendar": ql.Japan(), "day_count": ql.Actual360(), "index": ql.Tona},
+        
+        "CHF": {"calendar": ql.Switzerland(), "day_count": ql.Actual360(), "index": ql.Saron},
+        "NOK": {"calendar": ql.Norway(), "day_count": ql.Actual360(), "index": lambda: ql.IborIndex("Nowa", ql.Period(3, ql.Months), 2, ql.CHFCurrency(), ql.Norway(), ql.ModifiedFollowing, False, ql.Actual360())},
+        "SEK": {"calendar": ql.Sweden(), "day_count": ql.Actual360(), "index": lambda: ql.IborIndex("Stibor", ql.Period(3, ql.Months), 2, ql.EURCurrency(), ql.Sweden(), ql.ModifiedFollowing, False, ql.Actual360())},
+        "ZAR": {"calendar": ql.SouthAfrica(), "day_count": ql.Actual365Fixed(), "index": lambda: ql.IborIndex("Jibar", ql.Period(3, ql.Months), 2, ql.ZARCurrency(), ql.SouthAfrica(), ql.ModifiedFollowing, False, ql.Actual365Fixed())}
+    }
+    
+    meta = registry.get(ccy, registry["USD"])
+    calendar = meta["calendar"]
+    day_counter = meta["day_count"]
+    base_index = meta["index"]() if not callable(meta["index"]) else meta["index"]()
+
+    ql_date = ql.Date(int(target_date.split('-')[2]), int(target_date.split('-')[1]), int(target_date.split('-')[0]))
+    ql.Settings.instance().evaluationDate = ql_date
+
+    helpers = []
+    settlement_days = 2
+    
+    for _, row in df.iterrows():
+        raw_rate = float(row["rate"])
+        if raw_rate <= 0.0:
+            continue
+            
+        quote_handle = ql.QuoteHandle(ql.SimpleQuote(raw_rate))
+        clean_tenor_str = DataSanitizer.clean_tenor_string(row["tenor"])
+        
+        if 'M' in clean_tenor_str:
+            period = ql.Period(int(clean_tenor_str.replace('M', '')), ql.Months)
+        else:
+            period = ql.Period(int(clean_tenor_str.replace('Y', '')), ql.Years)
+            
+        if clean_tenor_str == "3M":
+            helper = ql.DepositRateHelper(quote_handle, period, settlement_days, calendar, ql.ModifiedFollowing, False, day_counter)
+        else:
+            helper = ql.SwapRateHelper(quote_handle, period, calendar, ql.Annual, ql.Unadjusted, day_counter, base_index)
+        helpers.append(helper)
+
+    if not helpers:
+        return None
+
+    curve_settlement_date = calendar.advance(ql_date, ql.Period(settlement_days, ql.Days))
+    return ql.PiecewiseLogLinearDiscount(curve_settlement_date, helpers, day_counter)
+
+# [DataSanitizer]
+
+class DataSanitizer:
     """
-    Check for an active Stripe subscription.
+    Centralised utility engine for handling string sanitization, date normalization,
+    and statistical coordinate conversions across the IRSQuant workstation.
     """
-    if not user.is_authenticated:
-        return False
-    # Returns True if user is staff or has a 'is_subscriber' flag in their Profile
-    return getattr(user.profile, "is_subscriber", False) or user.is_staff
+    
+    @staticmethod
+    def clean_tenor_string(raw_tenor):
+        if raw_tenor is None:
+            return "3M"
+        clean_token = str(raw_tenor).upper().strip()
+        if clean_token in ["0.25", "0.25Y"]:
+            return "3M"
+        match = re.match(r"(\d+)\s*([MY])", clean_token)
+        if match:
+            number, duration = match.groups()
+            return f"{number}{duration}"
+        return clean_token
+
+    @staticmethod
+    def parse_tenor_to_years(tenor_str):
+        clean_token = DataSanitizer.clean_tenor_string(tenor_str)
+        try:
+            if "M" in clean_token:
+                return float(clean_token.replace("M", "")) / 12.0
+            elif "Y" in clean_token:
+                return float(clean_token.replace("Y", ""))
+            return float(clean_token)
+        except ValueError:
+            return 1.0
+
+    @staticmethod
+    def normalize_date_string(raw_date):
+        if not raw_date:
+            return datetime.today().strftime("%Y-%m-%d")
+        clean_date = str(raw_date).strip().split(" ")
+        clean_date = clean_date.replace("/", "-")
+        try:
+            datetime.strptime(clean_date, "%Y-%m-%d")
+            return clean_date
+        except ValueError:
+            return datetime.today().strftime("%Y-%m-%d")
+
+    @staticmethod
+    def calculate_z_score(current_residual, historical_residuals):
+        if len(historical_residuals) < 2:
+            return 0.0
+        mean = float(sum(historical_residuals)) / len(historical_residuals)
+        variance = sum((x - mean) ** 2 for x in historical_residuals) / (len(historical_residuals) - 1)
+        std_dev = variance ** 0.5
+        if std_dev < 1e-6:
+            return 0.0
+        z_score = (current_residual - mean) / std_dev
+        return round(float(z_score), 2)
+
 
 
 def get_sofr_curve(target_date):
@@ -257,147 +377,4 @@ def get_forward_term_structure(curve, max_years=10):
         rates.append(fwd * 100)  # Percent
 
     return labels, rates
-
-
-# ==============================================================================
-# IRSQUANT SYSTEM EXTENSION: DYNAMIC MULTI-CURRENCY DATA DEFENCE LAYERS
-# ==============================================================================
-
-def get_cleaned_yield_curve(target_date, currency="USD"):
-    """
-    Fetches raw spot rates from the Django database for a specific date,
-    executes automated liquidity imputation filtering, and bootstraps
-    a calendar-perfect QuantLib Piecewise Log-Linear Discount Curve.
-    """
-    import QuantLib as ql  # Isolated import to prevent namespace collision
-    ccy = str(currency).upper().strip()
-    
-    # 1. Map dynamic index lookup labels to isolate appropriate database query rows
-    index_map = {
-        "USD": "SOFR", "EUR": "EURIBOR", "GBP": "SONIA", "JPY": "TONA",
-        "CHF": "SARON", "NOK": "NOWA", "SEK": "STIBOR", "ZAR": "JIBAR"
-    }
-    db_index_name = index_map.get(ccy, "SOFR")
-
-    # Fetch rows matching the timeline slice and asset criteria using the native ORM
-    rates_qs = HistoricalRate.objects.filter(date=target_date, index_name=db_index_name)
-    if not rates_qs.exists():
-        return None
-
-    # Convert to DataFrame for automated data cleaning passes
-    df = pd.DataFrame(list(rates_qs.values("tenor", "rate")))
-    
-    # --- ASSET REGISTRY SWITCHBOARD ---
-    # Dynamically maps calendar frameworks, reference floats, and accruals across 8 regions
-    registry = {
-        "USD": {"calendar": ql.UnitedStates(ql.UnitedStates.GovernmentBond), "day_count": ql.Actual360(), "index": ql.Sofr},
-        "EUR": {"calendar": ql.TARGET(), "day_count": ql.Actual360(), "index": ql.Euribor3M},
-        "GBP": {"calendar": ql.UnitedKingdom(ql.UnitedKingdom.Exchange), "day_count": ql.Actual365Fixed(), "index": ql.Sonia},
-        "JPY": {"calendar": ql.Japan(), "day_count": ql.Actual360(), "index": ql.Tona},
-        
-        "CHF": {"calendar": ql.Switzerland(), "day_count": ql.Actual360(), "index": ql.Saron},
-        "NOK": {"calendar": ql.Norway(), "day_count": ql.Actual360(), "index": lambda: ql.IborIndex("Nowa", ql.Period(3, ql.Months), 2, ql.CHFCurrency(), ql.Norway(), ql.ModifiedFollowing, False, ql.Actual360())},
-        "SEK": {"calendar": ql.Sweden(), "day_count": ql.Actual360(), "index": lambda: ql.IborIndex("Stibor", ql.Period(3, ql.Months), 2, ql.EURCurrency(), ql.Sweden(), ql.ModifiedFollowing, False, ql.Actual360())},
-        "ZAR": {"calendar": ql.SouthAfrica(), "day_count": ql.Actual365Fixed(), "index": lambda: ql.IborIndex("Jibar", ql.Period(3, ql.Months), 2, ql.ZARCurrency(), ql.SouthAfrica(), ql.ModifiedFollowing, False, ql.Actual365Fixed())}
-    }
-    
-    meta = registry.get(ccy, registry["USD"])
-    calendar = meta["calendar"]
-    day_counter = meta["day_count"]
-    base_index = meta["index"]() if not callable(meta["index"]) else meta["index"]()
-
-    # 2. Global QuantLib Settings: Define execution anchor point
-    ql_date = ql.Date(target_date.day, target_date.month, target_date.year)
-    ql.Settings.instance().evaluationDate = ql_date
-
-    # 3. Build Rate Helpers with Liquidity Filtering Guardrails
-    helpers = []
-    settlement_days = 2
-    
-    for _, row in df.iterrows():
-        raw_rate = float(row["rate"])
-        if raw_rate <= 0.0:
-            continue  # Intercepts missing data points to protect curve matrix solving
-            
-        quote_handle = ql.QuoteHandle(ql.SimpleQuote(raw_rate))
-        clean_tenor_str = DataSanitizer.clean_tenor_string(row["tenor"])
-        
-        # Map structural periods
-        if 'M' in clean_tenor_str:
-            period = ql.Period(int(clean_tenor_str.replace('M', '')), ql.Months)
-        else:
-            period = ql.Period(int(clean_tenor_str.replace('Y', '')), ql.Years)
-            
-        if clean_tenor_str == "3M":
-            helper = ql.DepositRateHelper(quote_handle, period, settlement_days, 
-                                          calendar, ql.ModifiedFollowing, 
-                                          False, day_counter)
-        else:
-            helper = ql.SwapRateHelper(quote_handle, period, calendar, 
-                                       ql.Annual, ql.Unadjusted, 
-                                       day_counter, base_index)
-        helpers.append(helper)
-
-    if not helpers:
-        return None
-
-    # 4. Bootstrap and return the flawless, calendar-aware YieldTermStructure
-    curve_settlement_date = calendar.advance(ql_date, ql.Period(settlement_days, ql.Days))
-    return ql.PiecewiseLogLinearDiscount(curve_settlement_date, helpers, day_counter)
-
-
-class DataSanitizer:
-    """
-    Centralised utility engine for handling string sanitization, date normalization,
-    and statistical coordinate conversions across the IRSQuant workstation.
-    """
-    
-    @staticmethod
-    def clean_tenor_string(raw_tenor):
-        if raw_tenor is None:
-            return "3M"
-        clean_token = str(raw_tenor).upper().strip()
-        if clean_token in ["0.25", "0.25Y"]:
-            return "3M"
-        match = re.match(r"(\d+)\s*([MY])", clean_token)
-        if match:
-            number, duration = match.groups()
-            return f"{number}{duration}"
-        return clean_token
-
-    @staticmethod
-    def parse_tenor_to_years(tenor_str):
-        clean_token = DataSanitizer.clean_tenor_string(tenor_str)
-        try:
-            if "M" in clean_token:
-                return float(clean_token.replace("M", "")) / 12.0
-            elif "Y" in clean_token:
-                return float(clean_token.replace("Y", ""))
-            return float(clean_token)
-        except ValueError:
-            return 1.0
-
-    @staticmethod
-    def normalize_date_string(raw_date):
-        if not raw_date:
-            return datetime.today().strftime("%Y-%m-%d")
-        clean_date = str(raw_date).strip().split(" ")
-        clean_date = clean_date.replace("/", "-")
-        try:
-            datetime.strptime(clean_date, "%Y-%m-%d")
-            return clean_date
-        except ValueError:
-            return datetime.today().strftime("%Y-%m-%d")
-
-    @staticmethod
-    def calculate_z_score(current_residual, historical_residuals):
-        if len(historical_residuals) < 2:
-            return 0.0
-        mean = float(sum(historical_residuals)) / len(historical_residuals)
-        variance = sum((x - mean) ** 2 for x in historical_residuals) / (len(historical_residuals) - 1)
-        std_dev = variance ** 0.5
-        if std_dev < 1e-6:
-            return 0.0
-        z_score = (current_residual - mean) / std_dev
-        return round(float(z_score), 2)
 
