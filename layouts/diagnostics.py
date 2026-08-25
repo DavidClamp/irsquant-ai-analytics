@@ -10,10 +10,11 @@ from curves import BootstrappedDiscountCurve
 def render_diagnostics_layout():
     """
     Assembles the structural HTML layout tree for Panel 1.
+    CSS-Hardened to prevent white-on-white dropdown label masking in Cyborg themes.
     """
     return html.Div(
         children=[
-            # SUB-HEADER BAR
+            # SUB-HEADER BAR WITH INTEGRATED SELECTORS
             dbc.Row(
                 className="mb-4 align-items-center g-3",
                 children=[
@@ -28,7 +29,7 @@ def render_diagnostics_layout():
                             options=[{"label": f"{ccy} Core Curve", "value": ccy} for ccy in ["USD", "EUR", "GBP", "JPY", "CHF", "NOK", "SEK", "ZAR"]],
                             value="USD",
                             clearable=False,
-                            style={'backgroundColor': '#11141a', 'color': '#ffffff'}
+                            className="text-dark fw-bold"  # Forces readable contrast over standard light options boxes
                         )
                     ]),
                     dbc.Col(md=3, children=[
@@ -38,7 +39,7 @@ def render_diagnostics_layout():
                             options=[{"label": "2026-08-21 [Latest]", "value": "2026-08-21"}],
                             value="2026-08-21",
                             clearable=False,
-                            style={'backgroundColor': '#11141a', 'color': '#ffffff'}
+                            className="text-dark fw-bold"  # Forces readable contrast over standard light options boxes
                         )
                     ])
                 ]
@@ -78,6 +79,7 @@ def render_diagnostics_layout():
             )
         ]
     )
+
 
 def register_diagnostics_callbacks(app):
     """
