@@ -3,9 +3,21 @@ import json
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from dash import Input, Output
+from dash import Input, Output, html  # 🛡️ FIXED: Explicitly added html import here
 import dash_bootstrap_components as dbc
 from options_calibration import safe_sabr_volatility
+
+def load_calibrated_sabr_cache():
+    """Reads the stored, calibrated parameters straight from our hard drive partition."""
+    try:
+        with open("data/calibrated_sabr_surfaces.json", "r") as f:
+            return json.load(f)
+    except Exception:
+        return {
+            "ZAR": {
+                "2026-08-21": {"alpha": 0.2550, "beta": 0.5000, "rho": -0.2500, "nu": 0.1500}
+            }
+        }
 
 def register_global_volatility_pipelines(app):
     """
@@ -31,7 +43,6 @@ def register_global_volatility_pipelines(app):
             available_dates = []
             
         if not available_dates:
-            # Safe system anchor backup match if local disk tracking arrays are executing background logs
             return [{"label": "2026-08-21 [Latest]", "value": "2026-08-21"}], "2026-08-21"
             
         options = [{"label": dt, "value": dt} for dt in available_dates]
@@ -53,15 +64,10 @@ def register_global_volatility_pipelines(app):
         currency_token = str(currency).upper().strip()
 
         # 1. Fetch optimized parametric coefficients directly from local disk partition
-        try:
-            with open("data/calibrated_sabr_surfaces.json", "r") as f:
-                cache = json.load(f)
-            params = cache.get(currency_token, {}).get(target_date, {
-                "alpha": 0.2550, "beta": 0.5000, "rho": -0.2500, "nu": 0.1500
-            })
-        except Exception:
-            # Systematic fallback protection array
-            params = {"alpha": 0.2550, "beta": 0.5000, "rho": -0.2500, "nu": 0.1500}
+        cache = load_calibrated_sabr_cache()
+        params = cache.get(currency_token, {}).get(target_date, {
+            "alpha": 0.2550, "beta": 0.5000, "rho": -0.2500, "nu": 0.1500
+        })
             
         alpha = float(params["alpha"])
         beta = float(params["beta"])
@@ -86,7 +92,6 @@ def register_global_volatility_pipelines(app):
         for i, expiry in enumerate(expiry_grid):
             for j, strike in enumerate(strike_grid):
                 v = safe_sabr_volatility(strike, forward_swap_rate, expiry, alpha, beta, rho, nu)
-                # Apply defensive scaling check to clear any SWIG binding displacement gaps
                 if v > 1.0:
                     v = v / 10.0
                 vol_matrix[i, j] = v * 100.0  # Convert to base percentage metrics for visual plotting

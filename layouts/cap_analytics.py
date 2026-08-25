@@ -10,10 +10,11 @@ from vol_surfaces_core import VolatilitySurfaceStripper
 def render_cap_layout():
     """
     Assembles the decoupled HTML/Dash UI view layout tree for the linear Cap/Floor strip desk.
+    Hardened with explicit text contrast mappings to prevent Cyborg theme masking.
     """
     return html.Div(
         children=[
-            # PANEL SUB-HEADER BAR
+            # PANEL SUB-HEADER BAR WITH INTEGRATED FILTERS
             dbc.Row(
                 className="mb-4 align-items-center g-3",
                 children=[
@@ -28,7 +29,7 @@ def render_cap_layout():
                             options=[{"label": f"{ccy} Cap Strip", "value": ccy} for ccy in ["USD", "EUR", "GBP", "JPY", "CHF", "NOK", "SEK", "ZAR"]],
                             value="USD",
                             clearable=False,
-                            style={'backgroundColor': '#11141a', 'color': '#ffffff'}
+                            className="text-dark fw-bold"  # HARDENED CONTRAST: Eliminates white-on-white text masking
                         )
                     ]),
                     dbc.Col(md=3, children=[
@@ -38,7 +39,7 @@ def render_cap_layout():
                             options=[{"label": f"{t} Swap Leg", "value": t} for t in ["1Y", "2Y", "5Y", "10Y", "30Y"]],
                             value="10Y",
                             clearable=False,
-                            style={'backgroundColor': '#11141a', 'color': '#ffffff'}
+                            className="text-dark fw-bold"  # HARDENED CONTRAST: Eliminates white-on-white text masking
                         )
                     ])
                 ]
@@ -63,6 +64,7 @@ def render_cap_layout():
             )
         ]
     )
+
 
 def register_cap_callbacks(app):
     """

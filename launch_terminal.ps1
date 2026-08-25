@@ -2,6 +2,9 @@
 # 🚀 IRSQUANTanalytics WORKSTATION: AUTOMATED BOOT ORCHESTRATOR
 # ==============================================================================
 Clear-Host
+
+# 🛡️ ENCODING SHIELD: Force the active PowerShell session engine to process output channels as pure UTF-8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = "Stop"
 
 Write-Host "================================================================================" -ForegroundColor Green

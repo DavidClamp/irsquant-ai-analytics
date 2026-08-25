@@ -1,13 +1,14 @@
 # layouts/scanner.py - PANEL 2: CROSS-SECTIONAL OLS ARBITRAGE SCANNER UI
 import json
 import pandas as pd
-from dash import dcc, html, Input, Output, dash_table
+from dash import dcc, html, Input, Output, State, dash_table  # 🛡️ FIXED: Added State here
 import dash_bootstrap_components as dbc
 from analytics import build_forward_permutation_matrix, run_statistical_arbitrage_sweep
 
 def render_scanner_layout():
     """
     Assembles the front-office UI view grid layout for the Relative-Value Fly Scanner.
+    Hardened with explicit text contrast mappings to prevent Cyborg theme masking.
     """
     return html.Div(
         children=[
@@ -26,7 +27,7 @@ def render_scanner_layout():
                             options=[{"label": f"{ccy} Arbitrage Sweep", "value": ccy} for ccy in ["USD", "EUR", "GBP", "JPY", "CHF", "NOK", "SEK", "ZAR"]],
                             value="USD",
                             clearable=False,
-                            style={'backgroundColor': '#11141a', 'color': '#ffffff'}
+                            className="text-dark fw-bold"  # HARDENED CONTRAST: Restores readable option text tokens
                         )
                     ]),
                     dbc.Col(md=3, children=[
@@ -69,10 +70,13 @@ def register_scanner_callbacks(app):
     @app.callback(
         Output("scanner-leaderboard-container", "children"),
         Input("trigger-scan-btn", "n_clicks"),
-        Input("scan-currency-selector", "value")
+        State("scan-currency-selector", "value")  # State is now fully bound and defined
     )
     def execute_arbitrage_regression_sweep(n_clicks, currency):
-        # 1. Pull flat-file continuous raw yield logs from local storage
+        if n_clicks is None:
+            return html.P("Select a target workspace currency and click 'Trigger Matrix Sweep' to execute linear regression models.", className="text-muted small font-monospace m-0")
+
+        # 1. Pull flat-file continuous raw yield logs from local storage safely
         try:
             with open("data/g4_curves.json", "r") as f:
                 raw_data = json.load(f)
@@ -88,17 +92,20 @@ def register_scanner_callbacks(app):
 
         # 2. Reconstruct forward permutation matrices and process ordinary least squares residuals
         try:
-            fwd_df = build_forward_permutation_matrix(master_df, selected_ccy=currency)
-            leaderboard_data = run_statistical_arbitrage_sweep(fwd_df)
+            fwd_matrix = build_forward_permutation_matrix(master_df, selected_ccy=currency)
+            leaderboard_data = run_statistical_arbitrage_sweep(fwd_matrix)
         except Exception as e:
-            # Shield layer error response row
             return html.Div(f"⚠️ Regression matrix processing dropped: {str(e)}", className="text-danger small monospace")
 
         if not leaderboard_data:
-            return html.Div("No structures identified within defined liquidity constraints.", className="text-muted small")
+            return html.Div("No structures identified within defined liquidity constraints.", className="text-muted small font-monospace")
 
         # 3. Flatten data fields into an enterprise-ready web table dataset
-        df_leaderboard = pd.DataFrame(leaderboard_data).drop(columns=["raw_residuals"], errors="ignore")
+        df_leaderboard = pd.DataFrame(leaderboard_data)
+        
+        # Strip internal debug keys if they slip through the analytical pipeline
+        if "raw_residuals" in df_leaderboard.columns:
+            df_leaderboard = df_leaderboard.drop(columns=["raw_residuals"])
 
         return dash_table.DataTable(
             data=df_leaderboard.to_dict('records'),

@@ -28,7 +28,7 @@ def render_swaption_layout():
                             options=[{"label": f"{ccy} Options Grid", "value": ccy} for ccy in ["USD", "EUR", "GBP", "JPY", "CHF", "NOK", "SEK", "ZAR"]],
                             value="ZAR",
                             clearable=False,
-                            style={'backgroundColor': '#11141a', 'color': '#ffffff'}
+                            className="text-dark fw-bold"  # HARDENED TEXT REVISIBILITY CONTRAST SHIELD
                         )
                     ]),
                     dbc.Col(md=3, children=[
@@ -36,7 +36,7 @@ def render_swaption_layout():
                         dcc.Dropdown(
                             id="swap-vol-date-selector",
                             clearable=False,
-                            style={'backgroundColor': '#11141a', 'color': '#ffffff'}
+                            className="text-dark fw-bold"  # HARDENED TEXT REVISIBILITY CONTRAST SHIELD
                         )
                     ])
                 ]
@@ -64,6 +64,7 @@ def render_swaption_layout():
             )
         ]
     )
+
 
 def register_swaption_callbacks(app):
     """

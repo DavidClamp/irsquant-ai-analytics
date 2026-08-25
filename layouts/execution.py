@@ -26,7 +26,7 @@ def render_execution_layout():
                             options=[{"label": f"{ccy} Trading Book", "value": ccy} for ccy in ["USD", "EUR", "GBP", "JPY", "CHF", "NOK", "SEK", "ZAR"]],
                             value="USD",
                             clearable=False,
-                            style={'backgroundColor': '#11141a', 'color': '#ffffff'}
+                            className="text-dark fw-bold"  # FIXED CONTRAST MAPPING
                         )
                     ]),
                     dbc.Col(md=3, children=[
@@ -36,7 +36,7 @@ def render_execution_layout():
                             options=[{"label": b, "value": b} for b in ["Macro-RV-Fly", "STIR-Hedging", "Exotics-Match"]],
                             value="Macro-RV-Fly",
                             clearable=False,
-                            style={'backgroundColor': '#11141a', 'color': '#ffffff'}
+                            className="text-dark fw-bold"  # FIXED CONTRAST MAPPING
                         )
                     ])
                 ]
