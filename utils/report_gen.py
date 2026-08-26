@@ -1,15 +1,15 @@
-# utils/report_gen.py - DESK UTILITY: AUTOMATED MARKDOWN RISK EXPORTER
+# utils/report_gen.py - DESK UTILITY: AUTOMATED MARKDOWN RISK EXPORTER WITH SIGNAL INGESTION
 import os
 import json
 import datetime
 import pandas as pd
-from sanitizer import DataSanitizer
+from sanitizer import DataSanitizer  
 from analytics import build_forward_permutation_matrix, run_statistical_arbitrage_sweep
 
 class DailyRiskReportGenerator:
     """
     Ingests live cross-sectional curves, executes a regression sweep across all active blocks,
-    and flattens the resulting trading dislocations into an encrypted local Markdown audit log.
+    and flattens the resulting trading dislocations and signals into a local Markdown audit log.
     """
     def __init__(self, output_dir="reports"):
         self.output_dir = output_dir
@@ -26,7 +26,7 @@ class DailyRiskReportGenerator:
             raw_data = json.load(f)
         master_df = pd.DataFrame(raw_data)
         
-        timestamp_str = "2026-08-26 09:20:00"  # Explicit operational execution anchor time stamp
+        timestamp_str = "2026-08-26 10:54:00"  # Current operational execution anchor time stamp
         file_date_str = "2026-08-26"
         
         # 2. Open up a file stream target to build your Markdown document
@@ -41,14 +41,14 @@ class DailyRiskReportGenerator:
             md.write(f"**System Status:** `● OPERATIONAL NOMINAL`  \n\n")
             md.write(f"---\n\n")
             
-            md.write(f"## 🌍 Global Macro Curve Arbitrage Leaderboard\n\n")
+            md.write(f"## 🌍 Global Macro Curve Arbitrage & Execution Signals Leaderboard\n\n")
             md.write(f"The table below ranks the top cross-sectional relative-value interest rate swap ")
             md.write(f"butterfly spreads based on maximum absolute Z-score deviation fields. ")
-            md.write(f"Entries breaking the $\\pm 2.00$ parameter threshold boundary wall signal strategic execution windows:\n\n")
+            md.write(f"Signals breaking the $\\pm 2.00$ parameter threshold boundary wall dictate clear tactical entry windows:\n\n")
             
-            # Write markdown table headers
-            md.write(f"| Position Currency | Structural Fly Dislocation | Hedge Ratio (S/L) | R-Squared | Z-Score |\n")
-            md.write(f"|:------------------|:----------------------------|:------------------|:----------|:--------|\n")
+            # Write markdown table headers including the new Signal column tracking
+            md.write(f"| Position Currency | Structural Fly Dislocation | Hedge Ratio (S/L) | R-Squared | Z-Score | Trading Signal Trigger |\n")
+            md.write(f"|:------------------|:----------------------------|:------------------|:----------|:--------|:-----------------------|\n")
             
             # 3. Sweep all 8 central currency asset blocks sequentially
             global_universe = ["USD", "EUR", "GBP", "JPY", "CHF", "NOK", "SEK", "ZAR"]
@@ -59,15 +59,18 @@ class DailyRiskReportGenerator:
                     leaderboard = run_statistical_arbitrage_sweep(fwd_matrix)
                     
                     if leaderboard and len(leaderboard) > 0:
-                        top_trade = leaderboard[0]  # Isolate the highest dislocation vector row
+                        top_trade = leaderboard[0]  # Isolate the highest dislocation vector row safely
                         z_val = top_trade["Z-Score"]
-                        alert_flag = "⚠️" if abs(z_val) >= 2.0 else " "
+                        signal_str = top_trade["Signal"]
                         
-                        md.write(f"| **{ccy}** | {top_trade['Structure']} | {top_trade['Hedge Ratio']} | {top_trade['R-Squared']:.4f} | {z_val:.2f} {alert_flag} |\n")
+                        # Add a visual markdown alert flag for extreme signals
+                        alert_flag = " ⚠️" if "HOLD" not in signal_str else ""
+                        
+                        md.write(f"| **{ccy}** | {top_trade['Structure']} | {top_trade['Hedge Ratio']} | {top_trade['R-Squared']:.4f} | {z_val:.2f} | `{signal_str}`{alert_flag} |\n")
                     else:
-                        md.write(f"| **{ccy}** | No data nodes extracted | N/A | N/A | 0.00 |\n")
+                        md.write(f"| **{ccy}** | No data nodes extracted | N/A | N/A | 0.00 | `HOLD` |\n")
                 except Exception as e:
-                    md.write(f"| **{ccy}** | *Calculation bypass sequence active* | N/A | N/A | 0.00 |\n")
+                    md.write(f"| **{ccy}** | *Calculation bypass sequence active* | N/A | N/A | 0.00 | `HOLD` |\n")
             
             md.write(f"\n\n---\n\n")
             md.write(f"## 🔒 Data Engineering Audit Trail Verification\n\n")

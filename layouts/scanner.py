@@ -107,6 +107,9 @@ def register_scanner_callbacks(app):
         if "raw_residuals" in df_leaderboard.columns:
             df_leaderboard = df_leaderboard.drop(columns=["raw_residuals"])
 
+        # layouts/scanner.py - Update Pass for DataTable Column Alignment
+# Locate your return dash_table.DataTable statement inside layouts/scanner.py and update:
+
         return dash_table.DataTable(
             data=df_leaderboard.to_dict('records'),
             columns=[{"name": col, "id": col} for col in df_leaderboard.columns],
@@ -129,16 +132,22 @@ def register_scanner_callbacks(app):
                 'fontSize': '13px'
             },
             style_data_conditional=[
+                # Color code row data fonts matching your trade signal metrics
                 {
-                    'if': {'filter_query': '{Z-Score} >= 2.0'},
+                    'if': {'filter_query': '{Signal} contains "BUY"'},
                     'color': '#00ff66',
                     'fontWeight': 'bold'
                 },
                 {
-                    'if': {'filter_query': '{Z-Score} <= -2.0'},
+                    'if': {'filter_query': '{Signal} contains "SELL"'},
                     'color': '#ff3333',
                     'fontWeight': 'bold'
+                },
+                {
+                    'if': {'filter_query': '{Signal} contains "HOLD"'},
+                    'color': '#8a99ad'
                 }
             ],
             page_size=12
         )
+

@@ -5,6 +5,7 @@ import pandas as pd
 import QuantLib as ql
 from sklearn.linear_model import LinearRegression
 from sanitizer import DataSanitizer
+from curves import BootstrappedDiscountCurve
 
 def extract_implied_forward_swap(ql_curve, start_n, tenor_m, day_counter):
     """
@@ -32,8 +33,7 @@ def build_forward_permutation_matrix(master_df, selected_ccy="USD"):
     Generates historical time-series matrices of forwards for regression scanning.
     🛡️ Shielded: Explicitly catches and handles local node interpolation crashes.
     """
-    from curves import BootstrappedDiscountCurve
-    
+      
     ccy_df = master_df[master_df['currency'] == selected_ccy.upper().strip()].copy()
     cleaned_df = ccy_df.groupby(['date', 'tenor'], as_index=False)['rate'].mean()
     pivot_df = cleaned_df.pivot(index='date', columns='tenor', values='rate').dropna()
@@ -77,33 +77,56 @@ def build_forward_permutation_matrix(master_df, selected_ccy="USD"):
 
 def run_statistical_arbitrage_sweep(fwd_df):
     """
-    Sweeps the continuous historical forward matrix to locate butterfly spread anomalies.
-    Excludes constant intercepts (fit_intercept=False) to ensure strict self-financing trading metrics.
+    Sweeps the forward permutation matrix, executing multivariable OLS regressions.
+    Calculates residuals, maps Z-scores, and generates trade execution signals.
     """
-    columns = list(fwd_df.columns)
-    leaderboard = []
+        
+    if fwd_df.empty or len(fwd_df) < 5:
+        return []
+        
+    cols = list(fwd_df.columns)
+    results = []
     
-    for short_w, body, long_w in itertools.combinations(columns, 3):
-        X = fwd_df[[short_w, long_w]].values
-        y = fwd_df[body].values
-        
-        reg = LinearRegression(fit_intercept=False).fit(X, y)
-        beta_short, beta_long = reg.coef_[0], reg.coef_[1]
-        
-        predicted_body = (beta_short * fwd_df[short_w]) + (beta_long * fwd_df[long_w])
-        historical_residuals = (fwd_df[body] - predicted_body).values
-        
-        current_residual = historical_residuals[-1]
-        z_score = DataSanitizer.calculate_z_score(current_residual, historical_residuals)
-        r_squared = float(reg.score(X, y))
-        
-        leaderboard.append({
-            "Structure": f"FLY: {body} vs [{short_w} & {long_w}]",
-            "Hedge Ratio": f"S: {beta_short:.2f} / L: {beta_long:.2f}",
-            "R-Squared": round(r_squared, 4),
-            "Current Residual": round(current_residual, 4),
-            "Z-Score": z_score
-        })
-        
-    leaderboard.sort(key=lambda x: abs(x["Z-Score"]), reverse=True)
-    return leaderboard
+    # Outer loops construct all unique Wing 1 / Belly / Wing 2 combinations
+    for i in range(len(cols)):
+        for j in range(i + 1, len(cols)):
+            for k in range(j + 1, len(cols)):
+                w1, belly, w2 = cols[i], cols[j], cols[k]
+                
+                X = fwd_df[[w1, w2]].values
+                y = fwd_df[belly].values
+                
+                # Force a zero-intercept OLS matrix model match
+                model = LinearRegression(fit_intercept=False)
+                model.fit(X, y)
+                
+                predictions = model.predict(X)
+                residuals = y - predictions
+                
+                current_residual = float(residuals[-1])
+                historical_residuals = [float(r) for r in residuals[:-1]]
+                
+                # Compute statistical deviation scores
+                z_score = DataSanitizer.calculate_z_score(current_residual, historical_residuals)
+                r_sq = float(model.score(X, y))
+                
+                # SIGNAL MATRIX GENERATION LAYER
+                if z_score <= -2.00:
+                    signal = "🟢 BUY FLY"
+                elif z_score >= 2.00:
+                    signal = "🔴 SELL FLY"
+                else:
+                    signal = "HOLD"
+                    
+                results.append({
+                    "Structure": f"FLY: {belly} vs [{w1} & {w2}]",
+                    "Hedge Ratio": f"S: {float(model.coef_[0]):.2f} / L: {float(model.coef_[1]):.2f}",
+                    "R-Squared": round(r_sq, 4),
+                    "Current Residual": round(current_residual, 4),
+                    "Z-Score": z_score,
+                    "Signal": signal  # Added straight to your data frames
+                })
+                
+    # Sort the output matrix ledger by maximum absolute dislocation
+    results.sort(key=lambda x: abs(x["Z-Score"]), reverse=True)
+    return results

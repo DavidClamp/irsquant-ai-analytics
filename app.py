@@ -46,12 +46,38 @@ app.layout = html.Div(
                     ),
                     html.Div(id="global-report-status", className="text-warning small monospace mt-1", style={'fontSize': '11px'})
                 ]),
-                dbc.Col(md=3, className="text-md-end", children=[
-                    html.Div(className="p-2 bg-dark rounded border border-secondary d-inline-block text-start", children=[
-                        html.Small("System Core Status:", className="text-muted d-block small", style={'fontSize': '10px'}),
-                        html.Span("● QUANTLIB NATIVE ACTIVE", className="text-success fw-bold monospace small", style={'fontSize': '12px'})
-                    ])
-                ])
+                # app.py - SHARPENED STATUS BADGE REGISTRY PASS
+
+                dbc.Col(
+                    md=3, 
+                    className="text-md-end d-flex align-items-center justify-content-end", 
+                    children=[
+                        html.Div(
+                            style={
+                                'backgroundColor': '#0b0d12', 
+                                'border': '1px solid #00ff66',  
+                                'borderRadius': '6px',
+                                'padding': '10px 16px',         
+                                'boxShadow': '0 0 10px rgba(0, 255, 102, 0.15)', 
+                                'minWidth': '210px'
+                            }, 
+                            className="text-start",
+                            children=[
+                                html.Small(
+                                    "SYSTEM ENGINE STATUS:", 
+                                    className="text-muted d-block fw-bold mb-1", 
+                                    style={'letterSpacing': '1px', 'fontSize': '9px', 'fontFamily': 'monospace'}
+                                ),
+                                html.Span(
+                                    "● QUANTLIB NATIVE ACTIVE", 
+                                    className="text-success fw-bold d-block", 
+                                    style={'fontSize': '12px', 'fontFamily': 'monospace', 'letterSpacing': '0.5px'}
+                                )
+                            ]
+                        )
+                    ]
+                )
+
             ]
         ),
         
