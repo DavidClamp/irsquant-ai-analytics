@@ -3,7 +3,7 @@ import os
 import json
 import datetime
 import pandas as pd
-from utils import DataSanitizer
+from sanitizer import DataSanitizer
 from analytics import build_forward_permutation_matrix, run_statistical_arbitrage_sweep
 
 class DailyRiskReportGenerator:

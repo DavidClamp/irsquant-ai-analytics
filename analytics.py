@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import QuantLib as ql
 from sklearn.linear_model import LinearRegression
-from utils import DataSanitizer
+from sanitizer import DataSanitizer
 
 def extract_implied_forward_swap(ql_curve, start_n, tenor_m, day_counter):
     """

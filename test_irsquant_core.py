@@ -7,7 +7,7 @@ from datetime import datetime
 # Import your upgraded, calendar-aware infrastructure modules
 from curves import BootstrappedDiscountCurve
 from analytics import extract_implied_forward_swap, generate_forward_block_matrix
-from utils import DataSanitizer
+from sanitizer import DataSanitizer
 
 def run_system_diagnostic_test():
     print("=" * 80)

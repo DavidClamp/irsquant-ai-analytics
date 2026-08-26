@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 import QuantLib as ql
-from utils import DataSanitizer
+from sanitizer import DataSanitizer
 
 class BootstrappedDiscountCurve:
     """

@@ -2,7 +2,7 @@
 import json
 import numpy as np
 import pandas as pd
-from utils import DataSanitizer
+from sanitizer import DataSanitizer
 
 class VolatilitySurfaceStripper:
     """
