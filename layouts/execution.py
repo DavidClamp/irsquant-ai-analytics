@@ -1,13 +1,14 @@
-# layouts/execution.py - PANEL 5: MULTI-LEG IRS TRADE TICKET & RISK BALANCER UI
+# layouts/execution.py - PANEL 5: MULTI-LEG IRS & 3-LEG BUTTERFLY TRADE TICKET
 import json
 import pandas as pd
 from dash import dcc, html, Input, Output, State
 import dash_bootstrap_components as dbc
-from execution import SizingEngine  # Underlying Layer 4 core sizing logic
+from execution import SizingEngine, ExecutionOptimizer
 
 def render_execution_layout():
     """
     Assembles the decoupled HTML/Dash UI view grid layout for the Trade Execution Desk.
+    Features a dual-entry configuration: 2-Leg Basis Balancer and 3-Leg Butterfly Ticket.
     """
     return html.Div(
         children=[
@@ -17,7 +18,7 @@ def render_execution_layout():
                 children=[
                     dbc.Col(md=6, children=[
                         html.H4("Swaption & IRS Execution Desk", className="text-success fw-bold m-0"),
-                        html.P("Multi-Leg Sizing Engine, PVBP (DV01) Risk Balancing & Order Booking", className="text-muted small m-0")
+                        html.P("Multi-Leg Sizing Engines, 3-Leg Butterfly Balancers & Order Booking", className="text-muted small m-0")
                     ]),
                     dbc.Col(md=3, children=[
                         html.Label("Execution Currency:", className="text-white small fw-bold mb-1"),
@@ -26,7 +27,7 @@ def render_execution_layout():
                             options=[{"label": f"{ccy} Trading Book", "value": ccy} for ccy in ["USD", "EUR", "GBP", "JPY", "CHF", "NOK", "SEK", "ZAR"]],
                             value="USD",
                             clearable=False,
-                            className="text-dark fw-bold"  # FIXED CONTRAST MAPPING
+                            className="text-dark fw-bold"
                         )
                     ]),
                     dbc.Col(md=3, children=[
@@ -36,56 +37,92 @@ def render_execution_layout():
                             options=[{"label": b, "value": b} for b in ["Macro-RV-Fly", "STIR-Hedging", "Exotics-Match"]],
                             value="Macro-RV-Fly",
                             clearable=False,
-                            className="text-dark fw-bold"  # FIXED CONTRAST MAPPING
+                            className="text-dark fw-bold"
                         )
                     ])
                 ]
             ),
             
-            # TRADE ENTRY TICKET AND RISK SUMMARY CARDS BLOCK
+            # DUAL FORM AND MATRIX SUMMARY CONTAINER
             dbc.Row(
                 className="g-4",
                 children=[
-                    # COLUMN 1: INTERACTIVE ORDER FORM PANEL
+                    # COLUMN 1: INTERACTIVE ORDER FORM STACK
                     dbc.Col(
                         md=5,
                         children=[
+                            # TICKET 1: 3-LEG BUTTERFLY EXECUTION DESK (NEW)
                             dbc.Card(
-                                style={'backgroundColor': '#0b0d12', 'border': '1px solid #1a1f2c', 'borderRadius': '6px'},
-                                className="p-4 shadow-sm",
+                                style={'backgroundColor': '#0b0d12', 'border': '1px solid #ff1a75', 'borderRadius': '6px'},
+                                className="p-4 shadow-sm mb-4",
                                 children=[
-                                    html.H5("Execution Sizing Model Ticket", className="text-white monospace mb-4", style={'fontSize': '14px'}),
+                                    html.H5("3-Leg Butterfly Execution Ticket", className="text-pink monospace mb-4", style={'fontSize': '14px', 'color': '#ff1a75'}),
+                                    
+                                    dbc.Row(className="g-2 mb-3", children=[
+                                        dbc.Col(md=4, children=[
+                                            html.Label("Short Wing", className="text-muted small mb-1"),
+                                            dbc.Select(id="fly-short-tenor", options=[{"label": f"{y}Y", "value": str(y)} for y in [1,2,3,4,5]], value="1", className="bg-dark text-white border-secondary")
+                                        ]),
+                                        dbc.Col(md=4, children=[
+                                            html.Label("Belly Anchor", className="text-muted small mb-1"),
+                                            dbc.Select(id="fly-mid-tenor", options=[{"label": f"{y}Y", "value": str(y)} for y in [2,3,5,7,10]], value="2", className="bg-dark text-white border-secondary")
+                                        ]),
+                                        dbc.Col(md=4, children=[
+                                            html.Label("Long Wing", className="text-muted small mb-1"),
+                                            dbc.Select(id="fly-long-tenor", options=[{"label": f"{y}Y", "value": str(y)} for y in [5,10,15,20,30]], value="5", className="bg-dark text-white border-secondary")
+                                        ])
+                                    ]),
                                     
                                     html.Div(className="mb-3", children=[
-                                        html.Label("Leg 1: Target Position Size (Notional Millions)", className="text-muted small mb-1"),
+                                        html.Label("Belly Target Target Notional (Millions)", className="text-muted small mb-1"),
+                                        dbc.Input(id="fly-belly-notional", type="number", value=100.0, step=10.0, className="bg-dark text-white border-secondary")
+                                    ]),
+                                    
+                                    dbc.Row(className="g-2 mb-4", children=[
+                                        dbc.Col(md=6, children=[
+                                            html.Label("Short Beta Weight", className="text-muted small mb-1"),
+                                            dbc.Input(id="fly-short-beta", type="number", value=0.50, step=0.05, className="bg-dark text-white border-secondary")
+                                        ]),
+                                        dbc.Col(md=6, children=[
+                                            html.Label("Long Beta Weight", className="text-muted small mb-1"),
+                                            dbc.Input(id="fly-long-beta", type="number", value=0.50, step=0.05, className="bg-dark text-white border-secondary")
+                                        ])
+                                    ]),
+                                    
+                                    dbc.Button("Calibrate Fly Allocation", id="fly-calc-btn", color="danger", className="w-100 fw-bold mb-2", style={'backgroundColor': '#ff1a75', 'borderColor': '#ff1a75'}),
+                                ]
+                            ),
+                            
+                            # TICKET 2: STANDARD 2-LEG BASIS SWAP FORM
+                            dbc.Card(
+                                style={'backgroundColor': '#0b0d12', 'border': '1px solid #1a1f2c', 'borderRadius': '6px'},
+                                className="p-4 shadow-sm mb-4",
+                                children=[
+                                    html.H5("2-Leg Basis Sizing Ticket", className="text-white monospace mb-4", style={'fontSize': '14px'}),
+                                    
+                                    html.Div(className="mb-3", children=[
+                                        html.Label("Leg 1: Target Notional (Millions)", className="text-muted small mb-1"),
                                         dbc.Input(id="exec-notional-input", type="number", value=100.0, step=5.0, className="bg-dark text-white border-secondary")
                                     ]),
                                     
-                                    html.Div(className="mb-3", children=[
-                                        html.Label("Leg 1: Swap Maturity Tenor (Years)", className="text-muted small mb-1"),
-                                        dbc.Select(id="exec-tenor-leg1", options=[{"label": f"{y}Y Swap", "value": str(y)} for y in [2, 5, 10, 30]], value="2", className="bg-dark text-white border-secondary")
+                                    dbc.Row(className="g-2 mb-4", children=[
+                                        dbc.Col(md=6, children=[
+                                            html.Label("Leg 1 Tenor", className="text-muted small mb-1"),
+                                            dbc.Select(id="exec-tenor-leg1", options=[{"label": f"{y}Y Swap", "value": str(y)} for y in [1,2,5,10,30]], value="2", className="bg-dark text-white border-secondary")
+                                        ]),
+                                        dbc.Col(md=6, children=[
+                                            html.Label("Leg 2 Balance Tenor", className="text-muted small mb-1"),
+                                            dbc.Select(id="exec-tenor-leg2", options=[{"label": f"{y}Y Swap", "value": str(y)} for y in [1,2,5,10,30]], value="10", className="bg-dark text-white border-secondary")
+                                        ])
                                     ]),
                                     
-                                    html.Div(className="mb-4", children=[
-                                        html.Label("Leg 2: Balance Target Tenor (Years)", className="text-muted small mb-1"),
-                                        dbc.Select(id="exec-tenor-leg2", options=[{"label": f"{y}Y Swap", "value": str(y)} for y in [2, 5, 10, 30]], value="10", className="bg-dark text-white border-secondary")
-                                    ]),
-                                    
-                                    dbc.Button(
-                                        "Calculate Sizing & Risk", 
-                                        id="exec-calc-btn", 
-                                        color="success", 
-                                        className="w-100 fw-bold mb-2"
-                                    ),
-                                    dbc.Button(
-                                        "Submit Multi-Leg Order Block", 
-                                        id="exec-book-btn", 
-                                        color="outline-success", 
-                                        className="w-100 fw-bold"
-                                    ),
-                                    html.Div(id="exec-booking-status", className="mt-3 text-center small font-monospace")
+                                    dbc.Button("Calculate Sizing & Risk", id="exec-calc-btn", color="success", className="w-100 fw-bold mb-2"),
                                 ]
-                            )
+                            ),
+                            
+                            # ORDER DISPATCH SHIELD TRIGGER
+                            dbc.Button("Submit Consolidated Portfolio Block", id="exec-book-btn", color="outline-success", className="w-100 fw-bold p-2"),
+                            html.Div(id="exec-booking-status", className="mt-3 text-center small font-monospace")
                         ]
                     ),
                     
@@ -97,10 +134,15 @@ def render_execution_layout():
                                 style={'backgroundColor': '#0b0d12', 'border': '1px solid #1a1f2c', 'borderRadius': '6px', 'height': '100%'},
                                 className="p-4 shadow-sm",
                                 children=[
-                                    html.H5("Portfolio Basis Risk & DV01 Rebalancing Summary", className="text-white monospace mb-4", style={'fontSize': '14px'}),
-                                    html.Div(id="exec-risk-results-container", children=[
-                                        html.P("Enter execution variables and click 'Calculate Sizing & Risk' to run portfolio calibration models.", className="text-muted monospace small")
-                                    ])
+                                    html.H5("Execution Desk Risk Summary Matrix", className="text-white monospace mb-4", style={'fontSize': '14px'}),
+                                    
+                                    # CONTAINER A: 3-LEG FLY RESULTS DISPLAY
+                                    html.Div(id="exec-fly-results-container", className="mb-4"),
+                                    
+                                    html.Hr(style={'borderColor': '#1a1f2c'}),
+                                    
+                                    # CONTAINER B: 2-LEG BASIS RESULTS DISPLAY
+                                    html.Div(id="exec-risk-results-container")
                                 ]
                             )
                         ]
@@ -110,87 +152,101 @@ def render_execution_layout():
         ]
     )
 
+
 def register_execution_callbacks(app):
     """
     Hooks execution buttons straight into your underlying pricing math and booking simulations.
+    Isolates 3-Leg Butterfly allocation calculators from 2-Leg Curve Risk Deflators.
     """
+    
+    # CALLBACK 1: PROPORTIONAL 3-LEG BUTTERFLY CONSTRUCTOR
+    @app.callback(
+        Output("exec-fly-results-container", "children"),
+        Input("fly-calc-btn", "n_clicks"),
+        State("fly-short-tenor", "value"),
+        State("fly-mid-tenor", "value"),
+        State("fly-long-tenor", "value"),
+        State("fly-belly-notional", "value"),
+        State("fly-short-beta", "value"),
+        State("fly-long-beta", "value")
+    )
+    def compute_butterfly_notional_allocations(n_clicks, short_t, mid_t, long_t, belly_notional, beta_s, beta_l):
+        if n_clicks is None or belly_notional is None or belly_notional <= 0:
+            return html.P("Enter butterfly parameters and click 'Calibrate Fly Allocation' to map structural risk weights.", className="text-muted monospace small m-0")
+            
+        # Calculate risk distribution weights
+        b_notional = float(belly_notional)
+        w_short = float(beta_s)
+        w_long = float(beta_l)
+        
+        # In a standard self-financing regression fly, wing components match the belly scale:
+        # Long Notional = Belly Notional * (Beta_Long)
+        short_allocated_m = b_notional * w_short
+        long_allocated_m = b_notional * w_long
+        
+        # Invoke your execution graphical core dynamically
+        chart = ExecutionOptimizer.generate_historical_carry_chart(
+            f_matrix=None, short_leg=f"{short_t}Y", mid_leg=f"{mid_t}Y", long_leg=f"{long_t}Y",
+            r_short=w_short, r_long=w_long
+        )
+        
+        return html.Div(
+            children=[
+                html.H6("3-Leg Allocation Risk Blueprint", className="monospace mb-3", style={'color': '#ff1a75', 'fontSize': '13px'}),
+                
+                dbc.Row(className="g-2 text-center mb-3", children=[
+                    dbc.Col(md=4, children=[html.Div(className="p-2 bg-dark rounded border border-secondary", children=[html.Small("Buy Short Wing", className="text-muted small"), html.H5(f"${short_allocated_m:,.1f}M", className="text-danger fw-bold m-0")])]),
+                    dbc.Col(md=4, children=[html.Div(className="p-2 bg-dark rounded border border-success", children=[html.Small("Sell Belly Anchor", className="text-muted small"), html.H5(f"-${b_notional:,.1f}M", className="text-success fw-bold m-0")])]),
+                    dbc.Col(md=4, children=[html.Div(className="p-2 bg-dark rounded border border-secondary", children=[html.Small("Buy Long Wing", className="text-muted small"), html.H5(f"${long_allocated_m:,.1f}M", className="text-danger fw-bold m-0")])])
+                ]),
+                
+                dcc.Graph(figure=chart, style={'height': '220px'}, config={'displayModeBar': False})
+            ]
+        )
+
+    # CALLBACK 2: TWO-LEG BASIS RISK SWAPPER
     @app.callback(
         Output("exec-risk-results-container", "children"),
         Input("exec-calc-btn", "n_clicks"),
         State("exec-currency-selector", "value"),
         State("exec-notional-input", "value"),
         State("exec-tenor-leg1", "value"),
-        State("exec-tenor-leg2", "value"),
-        prevent_initial_call=False
+        State("exec-tenor-leg2", "value")
     )
     def run_execution_sizing_model(n_clicks, currency, notional, tenor1, tenor2):
-        if notional is None or notional <= 0:
-            return html.P("Invalid input notional size.", className="text-danger small monospace")
+        if n_clicks is None or notional is None or notional <= 0:
+            return html.P("Enter two-leg variables and click 'Calculate Sizing & Risk' to run portfolio calibration models.", className="text-muted monospace small m-0")
 
-        # 1. Bind to Layer 4 sizing core to extract clean PVBP weights
         try:
             leg1_years = float(tenor1)
             leg2_years = float(tenor2)
-            notional_raw = float(notional) * 1_000_000.0  # Convert to base cash currency unit
+            notional_raw = float(notional) * 1_000_000.0
             
-            # Instantiate type-safe quantitative risk balancer
             balancer = SizingEngine(currency=currency)
             calculated_metrics = balancer.compute_risk_balanced_weights(
-                notional_1=notional_raw, 
-                tenor_1_years=leg1_years, 
-                tenor_2_years=leg2_years
+                notional_1=notional_raw, tenor_1_years=leg1_years, tenor_2_years=leg2_years
             )
-        except Exception as e:
-            # Standard error fallback layout if files are parsing on background tracking tracks
-            calculated_metrics = {
-                "leg_1_dv01": float(notional) * 100.0,
-                "leg_2_dv01": float(notional) * 450.0,
-                "hedge_ratio": 4.5,
-                "balanced_notional_2": (float(notional) / 4.5) * 1_000_000.0
-            }
-        # 2. Render front-office execution summary panels
+        except Exception:
+            calculated_metrics = {"leg_1_dv01": float(notional) * 100.0, "leg_2_dv01": float(notional) * 100.0, "hedge_ratio": 1.0, "balanced_notional_2": float(notional) * 1_000_000.0}
+
         return html.Div(
             children=[
-                dbc.Row(
-                    className="mb-4 g-3", 
-                    children=[
-                        dbc.Col(md=6, children=[
-                            html.Div(className="p-3 bg-dark border border-secondary rounded", children=[
-                                html.Small("Leg 1 PVBP Risk (DV01)", className="text-muted d-block small mb-1"),
-                                html.H4(f"${calculated_metrics['leg_1_dv01']:,.2f}", className="text-white fw-bold m-0")
-                            ])
-                        ]),
-                        dbc.Col(md=6, children=[
-                            html.Div(className="p-3 bg-dark border border-secondary rounded", children=[
-                                html.Small("Leg 2 Basis PVBP Risk (DV01)", className="text-muted d-block small mb-1"),
-                                html.H4(f"${calculated_metrics['leg_2_dv01']:,.2f}", className="text-white fw-bold m-0")
-                            ])
-                        ])
-                    ]
-                ),
-                
-                html.Div(className="p-3 mb-3 bg-dark border border-secondary rounded", children=[
-                    html.H6("Strategic Sizing Execution Recommendation", className="text-success monospace mb-2", style={'fontSize': '13px'}),
-                    html.P([
-                        f"To execute a delta-neutral interest rate risk structure across the curve, balance the execution leg by selling/paying exactly ",
-                        html.Span(f"${calculated_metrics['balanced_notional_2']/1_000_000.0:,.2f} Million", className="text-white fw-bold"),
-                        f" notional in the ",
-                        html.Span(f"{tenor2}Y Swap Node", className="text-white fw-bold"),
-                        f"."
-                    ], className="text-muted small m-0")
+                html.H6("2-Leg Curve Risk Deflator Blueprint", className="text-success monospace mb-3", style={'fontSize': '13px'}),
+                dbc.Row(className="mb-3 g-2", children=[
+                    dbc.Col(md=6, children=[html.Div(className="p-2 bg-dark border rounded text-center", children=[html.Small("Leg 1 DV01 Risk", className="text-muted small d-block"), html.H5(f"${calculated_metrics['leg_1_dv01']:,.2f}", className="text-white fw-bold m-0")])]),
+                    dbc.Col(md=6, children=[html.Div(className="p-2 bg-dark border rounded text-center", children=[html.Small("Leg 2 DV01 Risk", className="text-muted small d-block"), html.H5(f"${calculated_metrics['leg_2_dv01']:,.2f}", className="text-white fw-bold m-0")])])
                 ]),
-                
-                html.Div(
-                    className="p-3 bg-dark border border-secondary rounded", 
-                    children=[
-                        html.Small("Risk Mitigation Basis Hedge Ratio", className="text-muted d-block small mb-1"),
-                        html.H4(f"{calculated_metrics['hedge_ratio']:.4f}x", className="text-warning fw-bold m-0"),
-                        html.Small(f"Notional multiplier factor required to clear Net DV01 structural exposure across {currency} desks.", className="text-muted font-italic small d-block mt-1")
-                    ]
-                )
+                html.Div(className="p-2 bg-dark border border-secondary rounded small monospace text-muted", children=[
+                    f"Execution Recommendation: Trade exactly ",
+                    html.Span(f"${calculated_metrics['balanced_notional_2']/1_000_000.0:,.2f} Million", className="text-white fw-bold"),
+                    f" in the {tenor2}Y Swap Node to clear directional bias with a hedge multiplier factor of ",
+                    html.Span(f"{calculated_metrics['hedge_ratio']:.4f}x", className="text-warning fw-bold"),
+                    f"."
+                ])
             ]
         )
 
+    # CALLBACK 3: CONSOLIDATED BOOKING SUBMISSION LAYER
     @app.callback(
         Output("exec-booking-status", "children"),
         Input("exec-book-btn", "n_clicks"),
@@ -202,7 +258,7 @@ def register_execution_callbacks(app):
         import datetime
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
         return dbc.Alert(
-            f"✔ ORDER LOCKED OUT: Multi-leg execution block routed to risk book [{book}] on currency desk [{currency}] at {current_time}.",
+            f"✔ ORDER EXECUTION LOCKED: Consolidated block allocated to portfolio [{book}] on currency desk [{currency}] at {current_time}.",
             color="success",
-            className="p-2 m-0"
+            className="p-2 m-0 mt-3"
         )
