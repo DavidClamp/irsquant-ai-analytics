@@ -1,74 +1,74 @@
 {
     "ZAR": {
         "2026-08-21": {
-            "alpha": 0.02,
+            "alpha": 0.255,
             "beta": 0.5,
             "rho": -0.25,
             "nu": 0.15,
-            "timestamp_calibrated": "2026-08-21 15:17:26"
+            "timestamp_calibrated": "2026-08-26 15:47:23"
         }
     },
     "USD": {
         "2026-08-21": {
-            "alpha": 0.223,
+            "alpha": 0.2225,
             "beta": 0.5,
             "rho": -0.25,
             "nu": 0.15,
-            "timestamp_calibrated": "2026-08-21 15:17:26"
+            "timestamp_calibrated": "2026-08-26 15:47:23"
         }
     },
     "EUR": {
         "2026-08-21": {
-            "alpha": 0.183,
+            "alpha": 0.1825,
             "beta": 0.5,
             "rho": -0.25,
             "nu": 0.15,
-            "timestamp_calibrated": "2026-08-21 15:17:26"
+            "timestamp_calibrated": "2026-08-26 15:47:23"
         }
     },
     "GBP": {
         "2026-08-21": {
-            "alpha": 0.203,
+            "alpha": 0.2025,
             "beta": 0.5,
             "rho": -0.25,
             "nu": 0.15,
-            "timestamp_calibrated": "2026-08-21 15:17:26"
+            "timestamp_calibrated": "2026-08-26 15:47:23"
         }
     },
     "JPY": {
         "2026-08-21": {
-            "alpha": 0.143,
+            "alpha": 0.1425,
             "beta": 0.5,
             "rho": -0.25,
             "nu": 0.15,
-            "timestamp_calibrated": "2026-08-21 15:17:26"
+            "timestamp_calibrated": "2026-08-26 15:47:23"
         }
     },
     "CHF": {
         "2026-08-21": {
-            "alpha": 0.153,
+            "alpha": 0.1525,
             "beta": 0.5,
             "rho": -0.25,
             "nu": 0.15,
-            "timestamp_calibrated": "2026-08-21 15:17:26"
+            "timestamp_calibrated": "2026-08-26 15:47:23"
         }
     },
     "NOK": {
         "2026-08-21": {
-            "alpha": 0.193,
+            "alpha": 0.1925,
             "beta": 0.5,
             "rho": -0.25,
             "nu": 0.15,
-            "timestamp_calibrated": "2026-08-21 15:17:26"
+            "timestamp_calibrated": "2026-08-26 15:47:23"
         }
     },
     "SEK": {
         "2026-08-21": {
-            "alpha": 0.198,
+            "alpha": 0.1975,
             "beta": 0.5,
             "rho": -0.25,
             "nu": 0.15,
-            "timestamp_calibrated": "2026-08-21 15:17:26"
+            "timestamp_calibrated": "2026-08-26 15:47:23"
         }
     }
 }

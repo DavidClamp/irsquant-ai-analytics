@@ -1,9 +1,11 @@
 # layouts/fly_sizer.py
 import json
 import pandas as pd
-from dash import dcc, html, Input, Output, State
 import dash_bootstrap_components as dbc
+from dash import dcc, html, Input, Output, State, no_update
+import datetime
 from execution import SizingEngine, ExecutionOptimizer
+from config import BENCHMARK_TENORS
 
 def render_fly_layout():
     """
@@ -60,15 +62,15 @@ def render_fly_layout():
                                     dbc.Row(className="g-2 mb-3", children=[
                                         dbc.Col(md=4, children=[
                                             html.Label("Short Wing", className="text-muted small mb-1"),
-                                            dbc.Select(id="fly-short-tenor", options=[{"label": f"{y}Y Node", "value": str(y)} for y in [1, 2, 3, 5, 7, 10, 15, 20, 30]], value="1", className="bg-dark text-white border-secondary")
+                                            dbc.Select(id="fly-short-tenor", fly_options = [{"label": f"{y}Y Node", "value": str(y)} for y in BENCHMARK_TENORS], value="1", className="bg-dark text-white border-secondary")
                                         ]),
                                         dbc.Col(md=4, children=[
                                             html.Label("Belly Anchor", className="text-muted small mb-1"),
-                                            dbc.Select(id="fly-mid-tenor", options=[{"label": f"{y}Y Node", "value": str(y)} for y in [1, 2, 3, 5, 7, 10, 15, 20, 30]], value="2", className="bg-dark text-white border-secondary")
+                                            dbc.Select(id="fly-mid-tenor", fly_options = [{"label": f"{y}Y Node", "value": str(y)} for y in BENCHMARK_TENORS], value="2", className="bg-dark text-white border-secondary")
                                         ]),
                                         dbc.Col(md=4, children=[
                                             html.Label("Long Wing", className="text-muted small mb-1"),
-                                            dbc.Select(id="fly-long-tenor", options=[{"label": f"{y}Y Node", "value": str(y)} for y in [1, 2, 3, 5, 7, 10, 15, 20, 30]], value="5", className="bg-dark text-white border-secondary")
+                                            dbc.Select(id="fly-long-tenor", fly_options = [{"label": f"{y}Y Node", "value": str(y)} for y in BENCHMARK_TENORS], value="5", className="bg-dark text-white border-secondary")
                                         ])
                                     ]),
                                     
@@ -119,24 +121,7 @@ def render_fly_layout():
         ]
     )
 
-def register_fly_callbacks(app):
-    """
-    Hooks execution buttons straight into your underlying pricing math and booking simulations.
-    Calculates exact risk-neutral cash notionals matching targeted DV01 sensitivity metrics.
-    """
-    
-    # CALLBACK 1: PROPORTIONAL 3-LEG DV01 RISK-BALANCED BUTTERFLY SOLVER
-    @app.callback(
-        Output("exec-fly-results-container", "children"),
-        Input("fly-calc-btn", "n_clicks"),
-        State("fly-currency-selector", "value"),
-        State("fly-short-tenor", "value"),
-        State("fly-mid-tenor", "value"),
-        State("fly-long-tenor", "value"),
-        State("fly-target-dv01", "value"),
-        State("fly-short-beta", "value"),
-        State("fly-long-beta", "value")
-    )
+
 def register_fly_callbacks(app):
     """
     Hooks execution buttons straight into your underlying pricing math and booking simulations.
@@ -231,7 +216,7 @@ def register_fly_callbacks(app):
             ]
         )
 
-     # CALLBACK 2: ORDER BOOKING SIMULATION LAYER
+    # CALLBACK 2: ORDER BOOKING SIMULATION LAYER
     @app.callback(
         Output("fly-booking-status", "children"),
         Input("fly-book-btn", "n_clicks"),
@@ -241,11 +226,8 @@ def register_fly_callbacks(app):
     )
     def simulate_fly_booking(n_clicks, currency, book):
         import datetime
-        
-        # LINT SHIELD: Evaluates n_clicks to turn the variable from light orange to clean text
         if not n_clicks:
-            return dash.no_update
-            
+            return no_update
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
         return dbc.Alert(
             f"✔ BUTTERFLY BLOCK BOOKED: Allocated to portfolio [{book}] on currency desk [{currency}] at {current_time}.",

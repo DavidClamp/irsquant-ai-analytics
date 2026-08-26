@@ -5,6 +5,7 @@ import datetime
 import pandas as pd
 from sanitizer import DataSanitizer  
 from analytics import build_forward_permutation_matrix, run_statistical_arbitrage_sweep
+from config import GLOBAL_UNIVERSE
 
 class DailyRiskReportGenerator:
     """
@@ -51,9 +52,10 @@ class DailyRiskReportGenerator:
             md.write(f"|:------------------|:----------------------------|:------------------|:----------|:--------|:-----------------------|\n")
             
             # 3. Sweep all 8 central currency asset blocks sequentially
-            global_universe = ["USD", "EUR", "GBP", "JPY", "CHF", "NOK", "SEK", "ZAR"]
-            
-            for ccy in global_universe:
+                      
+                        # 3. Sweep all central currency asset blocks sequentially from your config vault
+                        
+            for ccy in GLOBAL_UNIVERSE:
                 try:
                     fwd_matrix = build_forward_permutation_matrix(master_df, selected_ccy=ccy)
                     leaderboard = run_statistical_arbitrage_sweep(fwd_matrix)
@@ -63,7 +65,7 @@ class DailyRiskReportGenerator:
                         z_val = top_trade["Z-Score"]
                         signal_str = top_trade["Signal"]
                         
-                        # Add a visual markdown alert flag for extreme signals
+                        # Add a visual markdown alert flag for extreme signals breaking thresholds
                         alert_flag = " ⚠️" if "HOLD" not in signal_str else ""
                         
                         md.write(f"| **{ccy}** | {top_trade['Structure']} | {top_trade['Hedge Ratio']} | {top_trade['R-Squared']:.4f} | {z_val:.2f} | `{signal_str}`{alert_flag} |\n")
@@ -71,6 +73,7 @@ class DailyRiskReportGenerator:
                         md.write(f"| **{ccy}** | No data nodes extracted | N/A | N/A | 0.00 | `HOLD` |\n")
                 except Exception as e:
                     md.write(f"| **{ccy}** | *Calculation bypass sequence active* | N/A | N/A | 0.00 | `HOLD` |\n")
+
             
             md.write(f"\n\n---\n\n")
             md.write(f"## 🔒 Data Engineering Audit Trail Verification\n\n")

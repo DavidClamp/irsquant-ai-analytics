@@ -3,16 +3,16 @@
 # ==============================================================================
 Clear-Host
 
-# 🛡️ ENCODING SHIELD: Force the active PowerShell session engine to process output channels as pure UTF-8
+# 🛡️ Force the active PowerShell session engine to process output channels as pure UTF-8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = "Stop"
 
 Write-Host "================================================================================" -ForegroundColor Green
 Write-Host "📊 INITIALIZING IRSQUANT NEXTGEN RUNTIME FRAMEWORK MODULES" -ForegroundColor Green
 Write-Host "================================================================================" -ForegroundColor Green
-Write-Host "📌 Node Execution Anchor Timeline: 2026-08-21" -ForegroundColor Cyan
+Write-Host "📌 Node Execution Anchor Timeline: 2026-08-26" -ForegroundColor Cyan
 
-# 1. Activate Standalone Python Virtual Workspace Environments
+# 1. Check for Standalone Python Virtual Workspace Environments
 if (Test-Path ".venv\Scripts\Activate.ps1") {
     Write-Host "`n[VENV] Spinning up dedicated python execution shell context..." -ForegroundColor Yellow
     & .venv\Scripts\Activate.ps1
