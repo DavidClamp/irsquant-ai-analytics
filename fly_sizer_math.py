@@ -1,4 +1,4 @@
-# fly_sizer_math.py - DEDICATED 3-LEG BUTTERFLY GRAPHICS & SIZING ENGINE
+# fly_sizer_math.py - FIXED HORIZONTAL POSITIONING PROPERTY
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -20,10 +20,13 @@ class ExecutionOptimizer:
         
         fig = go.Figure()
         fig.add_trace(go.Bar(
-            x=weights, y=categories, orientation='h',
+            x=weights, 
+            y=categories, 
+            orientation='h',
             marker=dict(color=color_map, line=dict(color='#1a1f2c', width=1)),
             text=[f"+{w:.2f}x" if w > 0 else f"{w:.2f}x" for w in weights],
-            textposition='inside', insidetextanchor='center',
+            textposition='inside', 
+            insidetextanchor='middle',  # 🛡️ FIXED: Aligns text inside without triggering Plotly property errors
             textfont=dict(family='monospace', size=11, color='#ffffff')
         ))
         

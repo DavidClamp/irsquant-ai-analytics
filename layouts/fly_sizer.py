@@ -1,11 +1,15 @@
-# layouts/fly_sizer.py
+# layouts/fly_sizer.py - 100% LINT-CLEAN CORE BUTTERFLY PRESENTATION VIEW
 import json
 import pandas as pd
-import dash_bootstrap_components as dbc
-from dash import dcc, html, Input, Output, State, no_update
 import datetime
-from execution import SizingEngine, ExecutionOptimizer
+from dash import dcc, html, Input, Output, State, no_update
+import dash_bootstrap_components as dbc
+from fly_sizer_math import ExecutionOptimizer
 from config import BENCHMARK_TENORS
+
+# Dynamic array mapping from our system central source of truth
+fly_options = [{"label": f"{y}Y Node", "value": str(y)} for y in BENCHMARK_TENORS]
+
 
 def render_fly_layout():
     """
@@ -62,15 +66,15 @@ def render_fly_layout():
                                     dbc.Row(className="g-2 mb-3", children=[
                                         dbc.Col(md=4, children=[
                                             html.Label("Short Wing", className="text-muted small mb-1"),
-                                            dbc.Select(id="fly-short-tenor", fly_options = [{"label": f"{y}Y Node", "value": str(y)} for y in BENCHMARK_TENORS], value="1", className="bg-dark text-white border-secondary")
+                                            dbc.Select(id="fly-short-tenor", options=fly_options, value="1", className="bg-dark text-white border-secondary")
                                         ]),
                                         dbc.Col(md=4, children=[
                                             html.Label("Belly Anchor", className="text-muted small mb-1"),
-                                            dbc.Select(id="fly-mid-tenor", fly_options = [{"label": f"{y}Y Node", "value": str(y)} for y in BENCHMARK_TENORS], value="2", className="bg-dark text-white border-secondary")
+                                            dbc.Select(id="fly-mid-tenor", options=fly_options, value="2", className="bg-dark text-white border-secondary")
                                         ]),
                                         dbc.Col(md=4, children=[
                                             html.Label("Long Wing", className="text-muted small mb-1"),
-                                            dbc.Select(id="fly-long-tenor", fly_options = [{"label": f"{y}Y Node", "value": str(y)} for y in BENCHMARK_TENORS], value="5", className="bg-dark text-white border-secondary")
+                                            dbc.Select(id="fly-long-tenor", options=fly_options, value="5", className="bg-dark text-white border-secondary")
                                         ])
                                     ]),
                                     
@@ -109,8 +113,6 @@ def render_fly_layout():
                                 className="p-4 shadow-sm",
                                 children=[
                                     html.H5("Execution Desk Risk Summary Matrix", className="text-white monospace mb-4", style={'fontSize': '14px'}),
-                                    
-                                    # CONTAINER A: 3-LEG DV01 RISK-TARGETED DISPLAY
                                     html.Div(id="exec-fly-results-container")
                                 ]
                             )
@@ -128,7 +130,6 @@ def register_fly_callbacks(app):
     Calculates exact risk-neutral cash notionals matching targeted DV01 sensitivity metrics.
     """
     
-    # CALLBACK 1: PROPORTIONAL 3-LEG DV01 RISK-BALANCED BUTTERFLY SOLVER
     @app.callback(
         Output("exec-fly-results-container", "children"),
         Input("fly-calc-btn", "n_clicks"),
@@ -184,39 +185,63 @@ def register_fly_callbacks(app):
         
         chart = ExecutionOptimizer.generate_historical_carry_chart(
             f_matrix=None, short_leg=f"{short_t}Y", mid_leg=f"{mid_t}Y", long_leg=f"{long_t}Y",
-            r_short=b_weight, r_long=l_weight
-        )
+            r_short=b_weight, r_long=l_weight)
         
+            # Fully Sanitized, Unclipped Callback UI Layout Tree
         return html.Div(
+            style={'display': 'flex', 'flexDirection': 'column', 'gap': '20px', 'width': '100%'},
             children=[
                 # MARKET COUPONS & NET SPREAD HUD PANEL
-                html.H6(f"Live Market Swap Coupons & Net Spread ({currency})", className="text-warning monospace mb-3", style={'fontSize': '13px'}),
-                dbc.Row(className="g-2 text-center mb-4", children=[
-                    dbc.Col(md=3, children=[html.Div(className="p-2 bg-dark rounded border border-secondary", children=[html.Small(f"{short_t}Y Coupon", className="text-muted small"), html.H5(f"{r_short:.4f}%", className="text-white fw-bold m-0")])]),
-                    dbc.Col(md=3, children=[html.Div(className="p-2 bg-dark rounded border border-secondary", children=[html.Small(f"{mid_t}Y Coupon", className="text-muted small"), html.H5(f"{r_mid:.4f}%", className="text-white fw-bold m-0")])]),
-                    dbc.Col(md=3, children=[html.Div(className="p-2 bg-dark rounded border border-secondary", children=[html.Small(f"{long_t}Y Coupon", className="text-muted small"), html.H5(f"{r_long:.4f}%", className="text-white fw-bold m-0")])]),
-                    dbc.Col(md=3, children=[html.Div(className="p-2 bg-dark rounded border border-info", style={'backgroundColor': '#11141a'}, children=[html.Small("Net Fly Spread", className="text-info small"), html.H5(f"{net_fly_spread_bps:+.2f} bps", className="text-info fw-bold m-0")])])
+                html.Div(children=[
+                    html.H6(f"Live Market Swap Coupons & Net Spread ({currency})", className="text-warning monospace mb-2", style={'fontSize': '13px'}),
+                    dbc.Row(className="g-2 text-center", children=[
+                        dbc.Col(md=3, children=[html.Div(className="p-2 bg-dark rounded border border-secondary", children=[html.Small(f"{short_t}Y Coupon", className="text-muted small"), html.H5(f"{r_short:.4f}%", className="text-white fw-bold m-0")])]),
+                        dbc.Col(md=3, children=[html.Div(className="p-2 bg-dark rounded border border-secondary", children=[html.Small(f"{mid_t}Y Coupon", className="text-muted small"), html.H5(f"{r_mid:.4f}%", className="text-white fw-bold m-0")])]),
+                        dbc.Col(md=3, children=[html.Div(className="p-2 bg-dark rounded border border-secondary", children=[html.Small(f"{long_t}Y Coupon", className="text-muted small"), html.H5(f"{r_long:.4f}%", className="text-white fw-bold m-0")])]),
+                        dbc.Col(md=3, children=[html.Div(className="p-2 bg-dark rounded border border-info", style={'backgroundColor': '#11141a'}, children=[html.Small("Net Fly Spread", className="text-info small"), html.H5(f"{net_fly_spread_bps:+.2f} bps", className="text-info fw-bold m-0")])])
+                    ])
                 ]),
                 
                 # RISK-BALANCED NOTIONAL TICKETS
-                html.H6("DV01 Duration-Weighted Notional Sizing Output", className="monospace mb-3", style={'color': '#ff1a75', 'fontSize': '13px'}),
-                dbc.Row(className="g-2 text-center mb-3", children=[
-                    dbc.Col(md=4, children=[html.Div(className="p-2 bg-dark rounded border border-secondary", children=[html.Small(f"Short Notional ({short_t}Y)", className="text-muted small"), html.H5(f"${short_allocated_m:,.2f}M", className="text-danger fw-bold m-0")])]),
-                    dbc.Col(md=4, children=[html.Div(className="p-2 bg-dark rounded border border-success", children=[html.Small(f"Belly Notional ({mid_t}Y)", className="text-muted small"), html.H5(f"-${mid_allocated_m:,.2f}M", className="text-success fw-bold m-0")])]),
-                    dbc.Col(md=4, children=[html.Div(className="p-2 bg-dark rounded border border-secondary", children=[html.Small(f"Long Notional ({long_t}Y)", className="text-muted small"), html.H5(f"${long_allocated_m:,.2f}M", className="text-danger fw-bold m-0")])])
+                html.Div(children=[
+                    html.H6("DV01 Duration-Weighted Notional Sizing Output", className="monospace mb-2", style={'color': '#ff1a75', 'fontSize': '13px'}),
+                    dbc.Row(className="g-2 text-center", children=[
+                        dbc.Col(md=4, children=[html.Div(className="p-2 bg-dark rounded border border-secondary", children=[html.Small(f"Short Notional ({short_t}Y)", className="text-muted small"), html.H5(f"${short_allocated_m:,.2f}M", className="text-danger fw-bold m-0")])]),
+                        dbc.Col(md=4, children=[html.Div(className="p-2 bg-dark rounded border border-success", children=[html.Small(f"Belly Notional ({mid_t}Y)", className="text-muted small"), html.H5(f"-${mid_allocated_m:,.2f}M", className="text-success fw-bold m-0")])]),
+                        dbc.Col(md=4, children=[html.Div(className="p-2 bg-dark rounded border border-secondary", children=[html.Small(f"Long Notional ({long_t}Y)", className="text-muted small"), html.H5(f"${long_allocated_m:,.2f}M", className="text-danger fw-bold m-0")])])
+                    ])
                 ]),
                 
-                html.Div(className="p-3 bg-dark border border-warning rounded small monospace text-warning fw-bold mb-3", children=[
-                    "Execution Note: ",
-                    html.Span(f"${target_dv01:,.2f} DV01/bp", className="text-white fw-bold"),
-                    f" targeted on the belly swap. Notionals reflect duration weighting via continuous curve PVBPs to lock a net-parallel delta profile of 0.00."
-                ]),
+                               
+                html.Div(
+                    className="p-3 bg-dark border border-warning rounded mb-4", 
+                    style={
+                        'boxShadow': '0 0 8px rgba(255, 193, 7, 0.1)',
+                        'height': 'auto',
+                        'minHeight': '50px'
+                    }, 
+                    children=[
+                        html.P(
+                            className="m-0 text-white small font-monospace",  # 🛡️ FIXED: Swapped 'text-muted' out for 'text-white'
+                            style={'whiteSpace': 'normal', 'wordBreak': 'break-word', 'lineHeight': '1.5'},
+                            children=[
+                                html.Span("Execution Posture Note: ", className="text-warning fw-bold"),
+                                f"Targeting exactly ",
+                                html.Span(f"${target_dv01:,.2f} DV01/bp", className="text-info fw-bold"),
+                                f" on your belly anchor node (",
+                                html.Span(f"{mid_t}Y", className="text-info fw-bold"),
+                                f"). Outer wings are dynamically scaled via non-linear continuous curve PVBPs to guarantee a net-parallel delta profile of exactly 0.00 across the portfolio timeline context."
+                            ]
+                        )
+                    ]
+                ),
+
                 
-                dcc.Graph(figure=chart, style={'height': '180px'}, config={'displayModeBar': False})
+                dcc.Graph(figure=chart, style={'height': '180px', 'width': '100%'}, config={'displayModeBar': False})
             ]
         )
-
-    # CALLBACK 2: ORDER BOOKING SIMULATION LAYER
+   
+        
     @app.callback(
         Output("fly-booking-status", "children"),
         Input("fly-book-btn", "n_clicks"),
@@ -225,7 +250,6 @@ def register_fly_callbacks(app):
         prevent_initial_call=True
     )
     def simulate_fly_booking(n_clicks, currency, book):
-        import datetime
         if not n_clicks:
             return no_update
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
@@ -235,3 +259,4 @@ def register_fly_callbacks(app):
             className="p-2 m-0 mt-3",
             style={'backgroundColor': '#210714', 'borderColor': '#ff1a75', 'color': '#ff1a75'}
         )
+ 

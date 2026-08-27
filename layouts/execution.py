@@ -4,7 +4,7 @@ import json
 import pandas as pd
 from dash import dcc, html, Input, Output, State, no_update
 import dash_bootstrap_components as dbc
-from execution import SizingEngine
+from basis_math import SizingEngine
 from config import BENCHMARK_TENORS
 
 def render_basis_layout():
@@ -132,7 +132,7 @@ def register_basis_callbacks(app):
             
             rates_map = dict(zip(ccy_slice['tenor'].str.strip().str.upper(), ccy_slice['rate']))
             
-            # 2. Extract true market execution coupons and spread
+            # 2. Extract true market execution coupons
             rate_leg1 = float(rates_map.get(f"{tenor1}Y", 4.3673))
             rate_leg2 = float(rates_map.get(f"{tenor2}Y", 4.1522))
             curve_spread_bps = (rate_leg2 - rate_leg1) * 100.0
@@ -171,6 +171,7 @@ def register_basis_callbacks(app):
                     dbc.Col(md=4, children=[html.Div(className="p-2 bg-dark rounded border border-info", style={'backgroundColor': '#11141a'}, children=[html.Small("Basis Curve Spread", className="text-info small"), html.H5(f"{curve_spread_bps:+.2f} bps", className="text-info fw-bold m-0")])])
                 ]),
                 
+               
                 # RE-CALIBRATED DV01 RISK MATCHING CARD PANELS
                 html.H6("DV01 Risk-Neutral Allocation Summary", className="text-success monospace mb-3", style={'fontSize': '13px'}),
                 dbc.Row(className="mb-3 g-2", children=[
@@ -178,7 +179,7 @@ def register_basis_callbacks(app):
                     dbc.Col(md=6, children=[html.Div(className="p-3 bg-dark border rounded text-center", children=[html.Small(f"Leg 2 ({tenor2}Y) Risk Target", className="text-muted small d-block mb-1"), html.H4(f"${leg2_dv01:,.2f}", className="text-white fw-bold m-0")])])
                 ]),
                 
-                # SPACED SIZING MATRICES
+                # ILLUMINATED RECOMMENDATION BLOCK
                 html.Div(
                     className="p-3 bg-dark border border-success rounded", 
                     children=[
@@ -193,9 +194,9 @@ def register_basis_callbacks(app):
                                     "Trade exactly ",
                                     html.Span(f"${balanced_notional_2_m:,.2f} Million", className="text-white fw-bold"),
                                     " notional in the ",
-                                    html.Span(f"{tenor2}Y Swap Node", className="text-white fw-bold"),
+                                    html.Span(f"{tenor2}Y Swap Node", className="text-info fw-bold"),
                                     " to completely immunize curve directional bias."
-                                ], className="m-0 text-muted small")
+                                ], className="m-0 text-white font-monospace small")
                             ])
                         ])
                     ]
