@@ -122,10 +122,14 @@ try:
         except Exception as e:
             return f"❌ Snapshot crashed: {str(e)}"
 
-    print("🚀 Initializing Master IRSQuant Core Router Nodes...")
-    print("🌍 Terminal Link Ready: Point your browser to http://127.0.0.1:8050")
-    app.run(debug=True, port=8050)
 
-except Exception as e:
-    print(f"❌ CRITICAL STAGE 3 FAILURE: Server boot process dropped: {str(e)}")
-    sys.exit(1)
+# --- SERVER RUN TIME ANCHOR ---
+# This block isolates your local bootstrapper from Gunicorn on Heroku
+if __name__ == "__main__":
+    try:
+        print("🚀 Initializing Master IRSQuant Core Router Nodes...")
+        print("🌍 Terminal Link Ready: Point your browser to http://127.0.0.1:8050")
+        app.run(debug=True, port=8050)
+    except Exception as e:
+        print(f"❌ CRITICAL STAGE 3 FAILURE: Server boot process dropped: {str(e)}")
+        sys.exit(1)
