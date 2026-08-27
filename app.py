@@ -1,4 +1,3 @@
-# app.py - MASTER PRESENTATION ROUTER & COUPLING ENGINE (DIAGNOSTIC RELEASE)
 import sys
 import os
 
@@ -37,6 +36,9 @@ try:
         suppress_callback_exceptions=True
     )
     app.title = "IRSQuant NextGen Terminal"
+    
+    # CRUCIAL FOR HEROKU: Expose underlying flask server for gunicorn
+    server = app.server
 
     # MASTER LAYOUT GRID MOUNT
     app.layout = html.Div(
@@ -107,29 +109,36 @@ try:
         elif active_tab == "tab-caplets": return render_cap_layout()
         elif active_tab == "tab-swaptions": return render_swaption_layout()
         return html.Div("View component missing context parameters.", className="text-danger monospace small")
-
+    
     @app.callback(
         Output("global-report-status", "children"),
         Input("global-report-btn", "n_clicks"),
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
     def execute_ui_report_snapshot(n_clicks):
-        if not n_clicks: return dash.no_update
-        try:
+        if not n_clicks: 
+            return dash.no_update
+        
+        try: 
             generator = DailyRiskReportGenerator()
             report_path = generator.generate_eod_snapshot()
             return f"✔ Compiled: reports/{os.path.basename(report_path)}"
-        except Exception as e:
+        except Exception as e: 
             return f"❌ Snapshot crashed: {str(e)}"
+
+# FIX: Added the missing except block for Stage 3 initialization
+except Exception as e:
+    print(f"❌ CRITICAL STAGE 3 FAILURE: Dash application setup failed: {str(e)}")
+    sys.exit(1)
 
 
 # --- SERVER RUN TIME ANCHOR ---
-# This block isolates your local bootstrapper from Gunicorn on Heroku
+# Completely flush left (0 spaces) outside the initialization tracks
 if __name__ == "__main__":
     try:
         print("🚀 Initializing Master IRSQuant Core Router Nodes...")
         print("🌍 Terminal Link Ready: Point your browser to http://127.0.0.1:8050")
         app.run(debug=True, port=8050)
     except Exception as e:
-        print(f"❌ CRITICAL STAGE 3 FAILURE: Server boot process dropped: {str(e)}")
+        print(f"❌ CRITICAL RUNTIME FAILURE: Server boot process dropped: {str(e)}")
         sys.exit(1)
