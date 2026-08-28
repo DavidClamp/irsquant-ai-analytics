@@ -28,7 +28,7 @@ def render_diagnostics_layout():
                             id="diag-currency-selector",
                             options=[{"label": f"{ccy} Curve Book", "value": ccy} for ccy in GLOBAL_UNIVERSE],
                             value="USD",
-                            clearable=False,
+                            clearable=False,  # 🛡️ SAFETY GUARD: Blocks manual user deletion of active items
                             className="text-dark fw-bold"
                         )
                     ]),
@@ -38,7 +38,7 @@ def render_diagnostics_layout():
                 ]
             ),
             
-            # TOP ROW: INTRA-CURVE consecutive 1Y 1Y FORWARDS VERTICAL HISTOGRAM
+            # TOP ROW: INTRA-CURVE CONSECUTIVE 1Y 1Y FORWARDS VERTICAL HISTOGRAM
             dbc.Row(
                 className="mb-4",
                 children=[
@@ -107,6 +107,10 @@ def register_diagnostics_callbacks(app):
         Input("diag-currency-selector", "value")
     )
     def compute_intra_day_visual_triage_metrics(currency):
+        # 🛡️ SAFETY GUARD: Defend against NoneType edge crashes during callback initialization loops
+        if not currency:
+            currency = "USD"
+            
         try:
             with open("data/g4_curves.json", "r") as f:
                 raw_data = json.load(f)
@@ -143,7 +147,7 @@ def register_diagnostics_callbacks(app):
                 yaxis=dict(showgrid=True, gridcolor='#161b26', tickfont=dict(family='monospace', color='#6c757d'), title=dict(text="Yield (%)", font=dict(size=10, color='#6c757d')))
             )
             
-            # 📊 CHART 2: RE-SWAPPED VERTICAL CONSECUTIVE 1Y FORWARDS HISTOGRAM
+            # 📊 CHART 2: VERTICAL 1Y FORWARDS HISTOGRAM
             rates_dict = dict(zip(df['tenor'].str.strip().str.upper(), df['rate']))
             
             forward_tenor_labels = []
@@ -172,16 +176,16 @@ def register_diagnostics_callbacks(app):
             fig_hist = go.Figure()
             fig_hist.add_trace(
                 go.Bar(
-                    x=forward_tenor_labels,               # Swapped: Year point interval is on the X-axis
-                    y=forward_rates_values,               # Swapped: Implied Forward Rate value is on the Y-axis
-                    orientation='v',                      # Forces vertical bar structure to stop line grouping overlapping
+                    x=forward_tenor_labels,
+                    y=forward_rates_values,
+                    orientation='v',
                     marker=dict(
                         color=forward_rates_values,
                         colorscale='Viridis',
                         line=dict(color='#1a1f2c', width=1)
                     ),
                     text=[f"{r:.3f}%" for r in forward_rates_values],
-                    textposition='outside',               # Places text values cleanly over the top of the columns
+                    textposition='outside',
                     textfont=dict(family='monospace', size=10, color='#ffffff')
                 )
             )
@@ -191,7 +195,8 @@ def register_diagnostics_callbacks(app):
                 showlegend=False,
                 xaxis=dict(
                     title=dict(text="Forward Curve Sector Interval", font=dict(size=11, color='#6c757d')),
-                    tickfont=dict(family='monospace', size=11, color='#ffffff')
+                    tickfont=dict(family='monospace', size=11, color='#ffffff'),
+                    tickangle=-30  # 🛡️ VISUAL TWEAK: Prevents text collision on tight screens
                 ),
                 yaxis=dict(
                     title=dict(text="Implied Forward Rate Coupon (%)", font=dict(size=11, color='#6c757d')),
@@ -202,7 +207,7 @@ def register_diagnostics_callbacks(app):
             
             title_text = f"{ccy} Implied Forward Rate Curve Term Structure Profile"
             
-                        # 📋 RENDER 3: ACTIVE CARRY & ROLL TABLE SNAPSHOT
+                       # 📋 RENDER 3: ACTIVE CARRY & ROLL TABLE SNAPSHOT
             roll_items = []
             target_vertices = ["2Y", "5Y", "10Y", "30Y"]
             for v in target_vertices:
@@ -229,4 +234,4 @@ def register_diagnostics_callbacks(app):
             blank_fig = go.Figure()
             error_msg = html.P(f"⚠️ Core Loop Interruption: {str(e)}", className="text-warning small font-monospace m-0")
             return blank_fig, error_msg, blank_fig, "Curve Error State"
-
+ 
