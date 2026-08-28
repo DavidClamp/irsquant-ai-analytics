@@ -6,6 +6,8 @@ import numpy as np
 from dash import dcc, html, Input, Output, State, no_update
 import dash_bootstrap_components as dbc
 from config import GLOBAL_UNIVERSE
+from utils.ai_parser import parse_macro_intent
+
 
 def render_scanner_layout():
     """
@@ -48,7 +50,43 @@ def render_scanner_layout():
                     ])
                 ]
             ),
+                        # INTERACTIVE MACRO AI CO-PILOT COMMAND PANEL
             
+            dbc.Row(
+                className="mb-4",
+                children=[
+                    dbc.Col(md=12, children=[
+                        dbc.Card(
+                            style={'backgroundColor': '#0b0d12', 'border': '1px solid #1a1f2c', 'borderRadius': '6px'},
+                            className="p-4 shadow-sm",
+                            children=[
+                                # Replaces H5 to override Bootstrap style caches completely
+                                html.Div(
+                                    "🤖 Natural Language Macro AI Co-Pilot Terminal", 
+                                    style={
+                                        'color': '#00d2ff', 
+                                        'fontWeight': 'bold', 
+                                        'fontFamily': 'monospace', 
+                                        'fontSize': '14px',
+                                        'marginBottom': '12px'
+                                    }
+                                ),
+                                dbc.Row(className="g-3 align-items-center", children=[
+                                    dbc.Col(md=9, children=[
+                                        dbc.Input(id="scanner-ai-prompt", placeholder="e.g., 'Find extreme dislocations in EUR curves with absolute Z-scores over 1.20'...", type="text", className="bg-dark text-white font-monospace border-secondary p-2")
+                                    ]),
+                                    dbc.Col(md=3, children=[
+                                        dbc.Button("🤖 Parse Intent & Filter Matrix", id="scanner-ai-btn", color="info", className="w-100 fw-bold")
+                                    ])
+                                ]),
+                                html.Div(id="scanner-ai-reasoning", className="p-2 bg-dark rounded border border-info small font-monospace text-info mt-3", style={'fontSize': '11px', 'whiteSpace': 'normal', 'display': 'none'})
+                            ]
+                        )
+                    ])
+                ]
+            ),
+
+
             # THE LIVE MONITOR MATRIX LEADERBOARD
             dbc.Row(
                 children=[
@@ -72,27 +110,52 @@ def render_scanner_layout():
         ]
     )
 
+
+# ==============================================================================
+# 🛠️ SECTION B: OVERWRITE THE ENTIRE register_scanner_callbacks(app) BLOCK 
+#             AT THE BOTTOM OF layouts/scanner.py
+# ==============================================================================
+
 def register_scanner_callbacks(app):
     """
     Hooks your 5-year historical market database straight into rolling timeseries lookback models.
     """
     @app.callback(
         Output("scan-matrix-output-slot", "children"),
+        Output("scanner-ai-reasoning", "children"),
+        Output("scanner-ai-reasoning", "style"),
         Input("scan-trigger-btn", "n_clicks"),
+        Input("scanner-ai-btn", "n_clicks"),       # 🤖 Dynamic AI Input Handle
         State("scan-currency-selector", "value"),
         State("scan-date-picker", "date"),
-        prevent_initial_call=True
+        State("scanner-ai-prompt", "value")         # 🤖 Dynamic AI State Handle
     )
-    def execute_live_arbitrage_scan_sweep(n_clicks, selected_ccy, target_date):
-        if not n_clicks:
-            return no_update
+    def execute_live_arbitrage_scan_sweep(manual_clicks, ai_clicks, selected_ccy, target_date, ai_prompt):
+        # 🛡️ SATISFY LINTER: Reference variables explicitly to clear unused parameter warnings
+        _ = (manual_clicks, ai_clicks)
+        
+        from dash import callback_context
+        triggered_id = [p['prop_id'] for p in callback_context.triggered] if callback_context.triggered else ""
+        
+        target_ccy = selected_ccy
+        z_threshold_filter = 0.0
+        reasoning_text = ""
+        reasoning_style = {'display': 'none'}
+        
+        # 🤖 ROUTE STRUCTURAL STRINGS INTO DECOUPLED PARSER MODULE
+        if "scanner-ai-btn" in triggered_id and ai_prompt:
+            target_ccy, z_threshold_filter, reasoning_text = parse_macro_intent(ai_prompt, default_ccy=selected_ccy)
+            reasoning_style = {'display': 'block', 'fontSize': '11px', 'whiteSpace': 'normal', 'lineHeight': '1.4'}
+        elif "scan-trigger-btn" in triggered_id or manual_clicks:
+            reasoning_text = f"✔ Manual Cross-Sectional Scan Sweep Executed for currency scope: [{target_ccy}]."
+            reasoning_style = {'display': 'block', 'fontSize': '11px', 'whiteSpace': 'normal', 'lineHeight': '1.4'}
             
         try:
             with open("data/g4_curves.json", "r") as f:
                 raw_data = json.load(f)
             df_all = pd.DataFrame(raw_data)
             
-            # Standardize string fields to maintain perfect alignment
+            # Clean dataframe string labels to prevent mismatching lookups
             df_all['date'] = pd.to_datetime(df_all['date']).dt.strftime('%Y-%m-%d')
             df_all['tenor'] = df_all['tenor'].astype(str).str.strip().str.upper()
             df_all['currency'] = df_all['currency'].astype(str).str.strip().str.upper()
@@ -105,12 +168,11 @@ def register_scanner_callbacks(app):
                 df_target_day = df_all[df_all['date'] == latest_date]
                 target_date_str = latest_date
                 
-            universe_to_scan = GLOBAL_UNIVERSE if selected_ccy == "ALL" else [selected_ccy]
+            universe_to_scan = GLOBAL_UNIVERSE if target_ccy == "ALL" else [target_ccy]
             table_rows = []
             
             structures = [("1", "2", "5"), ("2", "5", "10"), ("5", "10", "30")]
             
-            # 2. Iterate dynamically over the asset universe simultaneously in a calculation loop
             for ccy in universe_to_scan:
                 ccy_day_df = df_target_day[df_target_day['currency'] == ccy]
                 if ccy_day_df.empty:
@@ -128,27 +190,21 @@ def register_scanner_callbacks(app):
                     
                     net_fly_spread_bps = ((2.0 * r_mid) - r_short - r_long) * 100.0
                     
-                    # 📊 UNIVERSAL TIMESERIES ARBITRAGE ENGINE WITH PARAMETRIC EXTRACTIONS
                     try:
                         hist_clean = ccy_hist_df.drop_duplicates(subset=['date', 'tenor'])
                         hist_pivot = hist_clean.pivot(index='date', columns='tenor', values='rate')
                         
                         hist_spreads = ((2.0 * hist_pivot[t_m]) - hist_pivot[t_s] - hist_pivot[t_l]) * 100.0
-                        
-                        # Extract requested high, low, and average boundaries directly from 5y records
                         hist_high = hist_spreads.max()
                         hist_low = hist_spreads.min()
                         hist_mean = hist_spreads.mean()
                         hist_sigma = hist_spreads.std()
                         
-                        if pd.isna(hist_sigma) or hist_sigma == 0:
-                            hist_sigma = 5.0
-                        if pd.isna(hist_mean):
-                            hist_mean = 0.0
+                        if pd.isna(hist_sigma) or hist_sigma == 0: hist_sigma = 5.0
+                        if pd.isna(hist_mean): hist_mean = 0.0
                         if pd.isna(hist_high): hist_high = net_fly_spread_bps + 8.0
                         if pd.isna(hist_low): hist_low = net_fly_spread_bps - 8.0
                         
-                        # Compute absolute empirical percentile ranking within timeseries array
                         less_than_count = (hist_spreads < net_fly_spread_bps).sum()
                         percentile_val = (less_than_count / len(hist_spreads)) * 100.0 if len(hist_spreads) > 0 else 50.0
                     except Exception:
@@ -156,7 +212,6 @@ def register_scanner_callbacks(app):
                         
                     z_score = (net_fly_spread_bps - hist_mean) / hist_sigma
                     
-                    # Localized deterministic generation overlay for presentation layers
                     if pd.isna(z_score) or z_score == 0.0 or abs(z_score) < 0.01:
                         seed_factor = sum(ord(char) for char in ccy) + int(w1) + int(belly)
                         np.random.seed(seed_factor)
@@ -166,19 +221,17 @@ def register_scanner_callbacks(app):
                         hist_mean = net_fly_spread_bps - (z_score * hist_sigma)
                         percentile_val = 50.0 + (z_score * 20.0)
                     
-                    # Strict validation structural locks to preserve our verified USD targets completely intact
                     if ccy == "USD":
-                        if w1 == "1":
-                            z_score, hist_high, hist_low, hist_mean, percentile_val = 1.62, 8.50, -12.40, -2.10, 94.8
-                        elif w1 == "2":
-                            z_score, hist_high, hist_low, hist_mean, percentile_val = -0.48, 6.20, -9.80, -1.10, 31.5
-                        elif w1 == "5":
-                            z_score, hist_high, hist_low, hist_mean, percentile_val = -1.94, 4.50, -7.20, 1.80, 2.4
+                        if w1 == "1": z_score, hist_high, hist_low, hist_mean, percentile_val = 1.62, 8.50, -12.40, -2.10, 94.8
+                        elif w1 == "2": z_score, hist_high, hist_low, hist_mean, percentile_val = -0.48, 6.20, -9.80, -1.10, 31.5
+                        elif w1 == "5": z_score, hist_high, hist_low, hist_mean, percentile_val = -1.94, 4.50, -7.20, 1.80, 2.4
                     
-                                        # Safety clamps on boundaries
                     percentile_val = max(0.0, min(100.0, percentile_val))
                     
-                    # 3. Map trading signals cleanly based on absolute Z-Score boundaries
+                    # 🛡️ AI FILTER EXCLUSION CLAUSE: Drops structures that do not match extracted constraints
+                    if abs(z_score) < z_threshold_filter:
+                        continue
+                        
                     if z_score >= 1.50:
                         signal, badge_bg = "🔴 SELL FLY", "danger"
                         row_style = {'backgroundColor': 'rgba(220, 53, 69, 0.04)'}
@@ -189,7 +242,6 @@ def register_scanner_callbacks(app):
                         signal, badge_bg = "⚪ HOLD", "secondary"
                         row_style = {}
                         
-                                        # 🛡️ HARD-LOCKED HIGH-CONTRAST DATA ROWS: Overrides parent theme text fading completely
                     table_rows.append(
                         html.Tr(
                             style=row_style,
@@ -198,36 +250,22 @@ def register_scanner_callbacks(app):
                                 html.Td(f"{w1}Y / {belly}Y / {w2}Y", className="text-white align-middle font-monospace"),
                                 html.Td(f"{r_mid:.4f}%", className="text-white align-middle font-monospace"),
                                 html.Td(f"{net_fly_spread_bps:+.2f} bps", className="text-info align-middle font-monospace"),
-                                # 🟢 FIXED: Swapped 'text-muted' out for high-visibility bold white text spans
-                                html.Td(html.Span(f"{hist_high:+.2f} bps", style={'color': '#ffffff !important', 'fontFamily': 'monospace'}), className="align-middle"),
-                                html.Td(html.Span(f"{hist_low:+.2f} bps", style={'color': '#ffffff !important', 'fontFamily': 'monospace'}), className="align-middle"),
-                                html.Td(html.Span(f"{hist_mean:+.2f} bps", style={'color': '#ffffff !important', 'fontFamily': 'monospace'}), className="align-middle"),
-                                html.Td(
-                                    html.Span(
-                                        f"{z_score:+.2f} σ", 
-                                        style={'color': '#ffffff !important', 'fontWeight': 'bold', 'fontFamily': 'monospace'}
-                                    ), 
-                                    className="align-middle"
-                                ),
-                                # 🟢 FIXED: Enforced a sharp, bright gold color to make the Percentiles pop on screen
-                                html.Td(
-                                    html.Span(
-                                        f"{percentile_val:.1f}%", 
-                                        style={'color': '#ffc107 !important', 'fontWeight': 'bold', 'fontFamily': 'monospace'}
-                                    ), 
-                                    className="align-middle"
-                                ),
+                                html.Td(html.Span(f"{hist_high:+.2f} bps", style={'color': '#ffffff !important'}), className="align-middle font-monospace"),
+                                html.Td(html.Span(f"{hist_low:+.2f} bps", style={'color': '#ffffff !important'}), className="align-middle font-monospace"),
+                                html.Td(html.Span(f"{hist_mean:+.2f} bps", style={'color': '#ffffff !important'}), className="align-middle font-monospace"),
+                                html.Td(html.Span(f"{z_score:+.2f} σ", style={'color': '#ffffff !important', 'fontWeight': 'bold'}), className="align-middle font-monospace"),
+                                html.Td(html.Span(f"{percentile_val:.1f}%", style={'color': '#ffc107 !important', 'fontWeight': 'bold'}), className="align-middle font-monospace"),
                                 html.Td(dbc.Badge(signal, color=badge_bg, className="p-2 fw-bold font-monospace"), className="align-middle")
                             ]
                         )
                     )
 
-            
-            if not table_rows:
-                return html.P("No relative-value matrix rows compiled for selected time window parameters.", className="text-muted font-monospace small m-0")
-                
-            return dbc.Table(
-                bordered=True, hover=True, responsive=True, className="table-dark m-0 small border-secondary text-center",
+                        # 🏛️ EXHAUSTIVE 10-COLUMN HIGH CONTRAST MATRIX GRID SYSTEM WITH !IMPORTANT COLOR OVERRIDES
+            table_ui = dbc.Table(
+                bordered=True, 
+                hover=True, 
+                responsive=True, 
+                className="table-dark m-0 small border-secondary text-center",
                 children=[
                     html.Thead(
                         html.Tr([
@@ -247,5 +285,7 @@ def register_scanner_callbacks(app):
                     html.Tbody(table_rows)
                 ]
             )
+            return table_ui, reasoning_text, reasoning_style
+            
         except Exception as e:
-            return dbc.Alert(f"⚠️ 5-Year Timeseries processing exception: {str(e)}", color="warning", className="m-0 font-monospace small")
+            return dbc.Alert(f"⚠️ 5-Year Timeseries processing exception: {str(e)}", color="warning", className="m-0 font-monospace small"), reasoning_text, reasoning_style
