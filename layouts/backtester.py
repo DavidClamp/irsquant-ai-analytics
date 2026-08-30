@@ -98,9 +98,8 @@ def render_backtester_layout():
 def register_backtester_callbacks(app):
     """
     Hooks your 5-year historical JSON data ribbons straight into an active curve-carry
-    horizon engine, decoupled entirely from other tab fields to guarantee system stability.
+    horizon engine, utilizing linear interpolation to fill missing intermediate curve tenors.
     """
-    # 🟢 FIXED: Removed the nonexistent 'fly-short-dropdown' States from the decorator completely!
     @app.callback(
         Output("backtest-timeseries-chart", "figure"),
         Output("backtest-metrics-output-slot", "children"),
@@ -114,7 +113,7 @@ def register_backtester_callbacks(app):
             return go.Figure().update_layout(paper_bgcolor='#0b0d12', plot_bgcolor='#0b0d12'), html.P("Click the green button above to run the historical carry horizon simulation.", className="text-muted small m-0")
             
         try:
-            # Ingest 5-Year chronological business close-of-market history logs
+            # 1. INGEST 5-YEAR CHRONOLOGICAL HISTORICAL TIMESERIES DECK
             with open("data/g4_curves_hist.json", "r") as f:
                 raw_data = json.load(f)
             df_all = pd.DataFrame(raw_data)
@@ -131,20 +130,51 @@ def register_backtester_callbacks(app):
             hist_clean = df_ccy.drop_duplicates(subset=['date', 'tenor'])
             df_pivot = hist_clean.pivot(index='date', columns='tenor', values='rate').sort_index()
             
-            # Compute dynamic strict 1-year constant maturity shifts
+            # 🟢 DYNAMIC INTERPOLATION ENGINE: Intelligently back-solves missing intermediate 
+            # integer curve tenors (like 4Y and 9Y) to guarantee seamless math continuity.
+            available_cols = df_pivot.columns.tolist()
+            numeric_tenors = []
+            for col in available_cols:
+                try:
+                    numeric_tenors.append(int(col.replace('Y', '')))
+                except ValueError:
+                    pass
+            
+            if numeric_tenors:
+                min_t = min(numeric_tenors)
+                max_t = max(numeric_tenors)
+                
+                # Re-index columns chronologically to perform continuous row-wise interpolation
+                for t_num in range(min_t, max_t + 1):
+                    t_label = f"{t_num}Y"
+                    if t_label not in df_pivot.columns:
+                        # Find the nearest bounding lower and upper anchor nodes
+                        lower_nodes = [n for n in numeric_tenors if n < t_num]
+                        upper_nodes = [n for n in numeric_tenors if n > t_num]
+                        
+                        if lower_nodes and upper_nodes:
+                            p1 = max(lower_nodes)
+                            p2 = min(upper_nodes)
+                            
+                            r1 = df_pivot[f"{p1}Y"]
+                            r2 = df_pivot[f"{p2}Y"]
+                            
+                            # Standard continuous interbank linear interpolation formula
+                            df_pivot[t_label] = r1 + (r2 - r1) * ((t_num - p1) / (p2 - p1))
+            
+            # 2. RUN ROLL-DOWN SPREAD COMPARISON INTERSECTIONS
             if strat_type == "FLY":
-                # Static institutional standard baseline setup to track 2/5/10Y vs 1/4/9Y decay profiles
+                # Tracks 2Y/5Y/10Y Target vs. 1Y/4Y/9Y Shorter Roll decay profiles
                 t_s1, t_m1, t_l1 = "2Y", "5Y", "10Y"
                 t_s2, t_m2, t_l2 = "1Y", "4Y", "9Y"
                 
-                available_nodes = df_pivot.columns.tolist()
-                if not {t_s1, t_m1, t_l1, t_s2, t_m2, t_l2}.issubset(available_nodes):
-                    t_s1, t_m1, t_l1 = "3Y", "5Y", "7Y"
-                    t_s2, t_m2, t_l2 = "2Y", "4Y", "6Y"
+                missing_nodes = [n for n in [t_s1, t_m1, t_l1, t_s2, t_m2, t_l2] if n not in df_pivot.columns]
+                if missing_nodes:
+                    raise ValueError(f"Required curve vertices missing from interpolation grid: {missing_nodes}")
                 
                 df_pivot = df_pivot.dropna(subset=[t_s1, t_m1, t_l1, t_s2, t_m2, t_l2])
                 
-                # Raw spread processing (No Cumsum) plots overlays exactly like interbank desks
+                # Process spreads directly (No Cumsum) to map direct curve overlay tracking strips
                 df_pivot['target_fly'] = ((2.0 * df_pivot[t_m1]) - df_pivot[t_s1] - df_pivot[t_l1]) * 100.0
                 df_pivot['shorter_fly'] = ((2.0 * df_pivot[t_m2]) - df_pivot[t_s2] - df_pivot[t_l2]) * 100.0
                 df_pivot['carry_accrual'] = df_pivot['target_fly'] - df_pivot['shorter_fly']
@@ -153,7 +183,7 @@ def register_backtester_callbacks(app):
                 trace1_name = f"Target Trade Butterfly ({t_s1}/{t_m1}/{t_l1})"
                 trace2_name = f"1Y Shorter Roll Curve ({t_s2}/{t_m2}/{t_l2})"
             else:
-                # 2-Leg Basis Desk Fallback Setup (e.g. 5Y/10Y vs 4Y/9Y)
+                # 2-Leg Basis Desk Setup (5Y/10Y vs 4Y/9Y)
                 t_s1, t_l1 = "5Y", "10Y"
                 t_s2, t_l2 = "4Y", "9Y"
                 
@@ -165,7 +195,7 @@ def register_backtester_callbacks(app):
                 title_label = f"Carry Horizon: {selected_ccy} Active Basis ({t_s1}/{t_l1}) vs. Shorter Roll ({t_s2}/{t_l2})"
                 trace1_name = f"Active Basis ({t_s1}/{t_l1})"
                 trace2_name = f"1Y Shorter Roll ({t_s2}/{t_l2})"
-            # 3. EXTRACT QUANTITATIVE Horizon Performance Statistics
+            # 3. EXTRACT QUANTITATIVE HORIZON PERFORMANCE STATISTICS
             h_max = df_pivot['target_fly'].max()
             h_min = df_pivot['target_fly'].min()
             h_avg = df_pivot['target_fly'].mean()
@@ -182,8 +212,12 @@ def register_backtester_callbacks(app):
                 delta_spread = spread_series - lagged_spread
                 valid_mask = delta_spread.notna() & lagged_spread.notna()
                 coefficients = np.polyfit(lagged_spread[valid_mask], delta_spread[valid_mask], 1)
-                beta_slope = coefficients
-                half_life_str = f"{-np.log(2.0) / beta_slope:.1f} Days" if beta_slope < 0 else "No Convergence"
+                beta_slope = coefficients[0] # Extracted explicit scalar element to prevent matrix errors
+                
+                if beta_slope < 0:
+                    half_life_str = f"{-np.log(2.0) / beta_slope:.1f} Days"
+                else:
+                    half_life_str = "No Convergence"
             except Exception:
                 half_life_str = "14.2 Days"
                 
@@ -239,4 +273,3 @@ def register_backtester_callbacks(app):
             blank_fig = go.Figure().update_layout(paper_bgcolor='#0b0d12', plot_bgcolor='#0b0d12')
             err_alert = dbc.Alert(f"⚠️ Carry Horizon Engine execution anomaly: {str(e)}", color="warning", className="m-0 small")
             return blank_fig, err_alert
-
