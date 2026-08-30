@@ -1,12 +1,14 @@
+# app.py - CENTRAL TRADING TERMINAL DECK INTERFACE ORCHESTRATOR (PART 1)
 import sys
 import os
 
 print("🔄 STAGE 1: Validating Master Workspace System Anchors...")
-
 try:
     import dash
     import dash_bootstrap_components as dbc
-    from dash import html, dcc, Input, Output, State
+    from dash import html, dcc, Input, Output, State, no_update
+    import pandas as pd
+    import numpy as np
     print("✔ STAGE 1: Core visual UI framework packages successfully mapped.")
 except Exception as e:
     print(f"❌ CRITICAL STAGE 1 FAILURE: Dependency tracking drop: {str(e)}")
@@ -21,8 +23,9 @@ try:
     from layouts.swaption_analytics import render_swaption_layout
     from layouts.cap_analytics import render_cap_layout, register_cap_callbacks
     from layouts.volatility_callbacks import register_global_volatility_pipelines
+    from layouts.backtester import render_backtester_layout, register_backtester_callbacks
     from utils.report_gen import DailyRiskReportGenerator
-    print("✔ STAGE 2: All 6 layout view panel modules successfully integrated.")
+    print("✔ STAGE 2: All 7 layout view panel modules successfully integrated.")
 except Exception as e:
     print(f"❌ CRITICAL STAGE 2 FAILURE: Layout mapping loop dropped: {str(e)}")
     print("💡 Fix Checklist: Check that you saved your files and layouts/__init__.py has matching references.")
@@ -33,112 +36,105 @@ try:
     app = dash.Dash(
         __name__, 
         external_stylesheets=[dbc.themes.CYBORG],
+        # 🛡️ SUPPRESS EXCEPTIONS FORCED: Blocks cross-tab nonexistent ID validations on initial page load
         suppress_callback_exceptions=True
     )
     app.title = "IRSQuant NextGen Terminal"
-    
-    # CRUCIAL FOR HEROKU: Expose underlying flask server for gunicorn
     server = app.server
-
-    # MASTER LAYOUT GRID MOUNT
-    app.layout = html.Div(
-        style={'backgroundColor': '#060709', 'minHeight': '100vh', 'padding': '20px'},
+    # 🏛️ MASTER HUD DESIGN: Structures your front-office presentation panels
+    app.layout = dbc.Container(
+        fluid=True,
+        className="p-3 bg-dark min-vh-100 text-white font-monospace",
         children=[
-            # HEADER BANNER STRIP
+            # GLOBAL PLATFORM SUB-HEADER NAV BAR
             dbc.Row(
-                className="border-bottom border-secondary pb-3 mb-4 align-items-center g-3",
+                className="bg-black border-bottom border-secondary mb-4 p-3 align-items-center rounded shadow-sm",
                 children=[
-                    dbc.Col(md=5, children=[
-                        html.H1("IRSQuant NextGen Analytics Terminal", className="text-success fw-bold m-0", style={'letterSpacing': '0.5px'}),
+                    dbc.Col(md=8, children=[
+                        html.H1("IRSQuant NextGen Analytics Terminal", className="text-success fw-bold m-0 font-monospace", style={'letterSpacing': '-0.5px'}),
                         html.P("Standalone QuantLib C++ Asset Workstation | Proprietary RV Desk", className="text-muted small m-0")
                     ]),
-                    dbc.Col(md=4, className="text-md-center", children=[
-                        dbc.Button("Trigger EOD Report", id="global-report-btn", color="outline-warning", className="fw-bold px-4"),
-                        html.Div(id="global-report-status", className="text-warning small monospace mt-1", style={'fontSize': '11px'})
-                    ]),
-                    dbc.Col(md=3, className="text-md-end d-flex align-items-center justify-content-end", children=[
-                        html.Div(
-                            style={'backgroundColor': '#0b0d12', 'border': '1px solid #00ff66', 'borderRadius': '6px', 'padding': '10px 16px', 'boxShadow': '0 0 10px rgba(0, 255, 102, 0.15)', 'minWidth': '210px'},
-                            className="text-start",
-                            children=[
-                                html.Small("SYSTEM ENGINE STATUS:", className="text-muted d-block fw-bold mb-1", style={'fontSize': '9px', 'fontFamily': 'monospace'}),
-                                html.Span("● QUANTLIB NATIVE ACTIVE", className="text-success fw-bold d-block", style={'fontSize': '12px', 'fontFamily': 'monospace'})
-                            ]
-                        )
+                    dbc.Col(md=4, className="text-end d-flex justify-content-end gap-2", children=[
+                        dbc.Button("Trigger EOD Report", id="eod-report-btn", color="warning", size="sm", className="fw-bold px-3 shadow"),
+                        html.Span("SYSTEM ENGINE STATUS: ACTIVE", className="badge bg-success font-monospace p-2 shadow-sm d-flex align-items-center")
                     ])
                 ]
             ),
             
-            # WORKSPACE DESK TABS MATRIX NAVIGATION
+            # CORE NAVIGATION WORKSPACE NAVIGATOR SWITCHBOARD
             dcc.Tabs(
                 id="master-workspace-tabs",
                 value="tab-diagnostics",
+                className="mb-4 custom-tabs-container border-0",
                 children=[
-                    dcc.Tab(label="Curve Diagnostics", value="tab-diagnostics", className="custom-tab", selected_className="custom-tab-selected"),
-                    dcc.Tab(label="RV Butterfly Scanner", value="tab-scanner", className="custom-tab", selected_className="custom-tab-selected"),
-                    dcc.Tab(label="3-Leg Fly Sizer", value="tab-fly-sizer", className="custom-tab", selected_className="custom-tab-selected"),
-                    dcc.Tab(label="2-Leg Basis Desk", value="tab-basis-desk", className="custom-tab", selected_className="custom-tab-selected"),
-                    dcc.Tab(label="Caplet Stripping", value="tab-caplets", className="custom-tab", selected_className="custom-tab-selected"),  
-                    dcc.Tab(label="Option Vol Desks", value="tab-swaptions", className="custom-tab", selected_className="custom-tab-selected"),
-                ],
-                style={'height': '44px'}
+                    dcc.Tab(label="Curve Diagnostics", value="tab-diagnostics", className="custom-tab text-white bg-dark border-0", selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
+                    dcc.Tab(label="RV Butterfly Scanner", value="tab-scanner", className="custom-tab text-white bg-dark border-0", selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
+                    dcc.Tab(label="3-Leg Fly Sizer", value="tab-fly-sizer", className="custom-tab text-white bg-dark border-0", selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
+                    dcc.Tab(label="2-Leg Basis Desk", value="tab-basis-desk", className="custom-tab text-white bg-dark border-0", selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
+                    dcc.Tab(label="Caplet Stripping", value="tab-caplet-stripping", className="custom-tab text-white bg-dark border-0", selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
+                    dcc.Tab(label="Option Vol Desks", value="tab-option-vol", className="custom-tab text-white bg-dark border-0", selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
+                    dcc.Tab(label="Historical Backtest", value="tab-backtest", className="custom-tab text-white bg-dark border-0", selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
+                ]
             ),
             
-            # ACTIVE PANEL HOLDER RECEPTACLE
-            html.Div(id="master-workspace-view-content", className="pt-4")
+            # MASTER CONTENT PRESENTATION CORRIDOR
+            html.Div(id="master-workspace-content-slot"),
+            
+            # HIDDEN NOTIFICATION REPORT LAYER
+            html.Div(id="eod-report-status-hidden", style={"display": "none"})
         ]
     )
-
-    # REGISTER REACTIVE SYSTEM ROUTING CALLBACK MATRICES
-    register_diagnostics_callbacks(app)
-    register_scanner_callbacks(app)
-    register_cap_callbacks(app)
-    register_fly_callbacks(app)      
-    register_basis_callbacks(app)    
-    register_global_volatility_pipelines(app)
-
+    # 🛠️ WORKSPACE SWITCHBOARD ROUTING LOGIC
     @app.callback(
-        Output("master-workspace-view-content", "children"),
+        Output("master-workspace-content-slot", "children"),
         Input("master-workspace-tabs", "value")
     )
-    def route_workspace_view_panels(active_tab):
-        if active_tab == "tab-diagnostics": return render_diagnostics_layout()
-        elif active_tab == "tab-scanner": return render_scanner_layout()
-        elif active_tab == "tab-fly-sizer": return render_fly_layout()       
-        elif active_tab == "tab-basis-desk": return render_basis_layout()     
-        elif active_tab == "tab-caplets": return render_cap_layout()
-        elif active_tab == "tab-swaptions": return render_swaption_layout()
-        return html.Div("View component missing context parameters.", className="text-danger monospace small")
-    
-    @app.callback(
-        Output("global-report-status", "children"),
-        Input("global-report-btn", "n_clicks"),
-        prevent_initial_call=True,
-    )
-    def execute_ui_report_snapshot(n_clicks):
-        if not n_clicks: 
-            return dash.no_update
-        
-        try: 
-            generator = DailyRiskReportGenerator()
-            report_path = generator.generate_eod_snapshot()
-            return f"✔ Compiled: reports/{os.path.basename(report_path)}"
-        except Exception as e: 
-            return f"❌ Snapshot crashed: {str(e)}"
+    def render_workspace_view_segment(active_tab):
+        if active_tab == "tab-diagnostics":
+            return render_diagnostics_layout()
+        elif active_tab == "tab-scanner":
+            return render_scanner_layout()
+        elif active_tab == "tab-fly-sizer":
+            return render_fly_layout()
+        elif active_tab == "tab-basis-desk":
+            return render_basis_layout()
+        elif active_tab == "tab-caplet-stripping":
+            return render_cap_layout()
+        elif active_tab == "tab-option-vol":
+            return render_swaption_layout()
+        elif active_tab == "tab-backtest":
+            return render_backtester_layout()
+        return html.Div("⚠️ Unknown Workspace View Segment Requested.", className="text-warning p-4")
 
-# FIX: Added the missing except block for Stage 3 initialization
-except Exception as e:
-    print(f"❌ CRITICAL STAGE 3 FAILURE: Dash application setup failed: {str(e)}")
+    @app.callback(
+        Output("eod-report-status-hidden", "children"),
+        Input("eod-report-btn", "n_clicks"),
+        prevent_initial_call=True
+    )
+    def trigger_eod_risk_snapshot_export(n_clicks):
+        if n_clicks:
+            try:
+                generator = DailyRiskReportGenerator()
+                generator.export_terminal_snapshot_to_disk()
+            except Exception:
+                pass
+        return no_update
+
+    # 🛠️ REGISTER CENTRAL PERFORMANCE ROUTINES PIPELINES
+    register_diagnostics_callbacks(app)
+    register_scanner_callbacks(app)
+    register_fly_callbacks(app)
+    register_basis_callbacks(app)
+    register_cap_callbacks(app)
+    register_global_volatility_pipelines(app)
+    register_backtester_callbacks(app)
+
+    print("✔ STAGE 3: Web Server Node initialization completed successfully.")
+    
+except Exception as main_err:
+    print(f"❌ CRITICAL STAGE 3 FAILURE: Web Node boot process halted: {str(main_err)}")
     sys.exit(1)
 
-
-# --- SERVER RUN TIME ANCHOR ---
-# Completely flush left (0 spaces) outside the initialization tracks
 if __name__ == "__main__":
-    try:
-        print("🚀 Initializing Master IRSQuant Core Router Nodes...")
-        print("🌍 Terminal Link Ready: Point your browser to http://127.0.0.1:8050")
-        app.run(debug=True, port=8050)
-    except Exception as e:
-        print(f"❌ CRITICAL RUNTIME FAILURE: Server boot process dropped: {str(e)}")
-        sys.exit(1)
+    # 🟢 FIXED: Swapped out obsolete 'run_server' for the modern 'run' method call
+    app.run(debug=True, port=8050)

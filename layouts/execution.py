@@ -123,7 +123,7 @@ def register_basis_callbacks(app):
 
         try:
             # 1. Ingest live closing curves from data vault
-            with open("data/g4_curves.json", "r") as f:
+            with open("data/g4_curves_live.json", "r") as f:
                 raw_data = json.load(f)
             df = pd.DataFrame(raw_data)
             ccy_slice = df[(df['currency'] == currency.upper().strip()) & (df['date'] == "2026-08-26")]

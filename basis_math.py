@@ -17,12 +17,19 @@ class SizingEngine:
         """
         try:
             # Ingest live curve database arrays from local storage
-            with open("data/g4_curves.json", "r") as f:
+            with open("data/g4_curves_live.json", "r") as f:
                 raw_data = json.load(f)
             df = pd.DataFrame(raw_data)
             
-            # Isolate active currency row slice for the active timeline anchor
-            ccy_slice = df[(df['currency'] == self.currency) & (df['date'] == "2026-08-26")]
+            # Clean and standardise date tokens to ensure cl
+            # ean string lookups
+            df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
+            
+            # Isolate the latest available date record in the entire dataset dynamically
+            latest_available_date = df['date'].max()
+            
+            # 🟢 FIXED: Bypasses hardcoded dates to dynamically grab the newest record row on disk
+            ccy_slice = df[(df['currency'] == self.currency) & (df['date'] == latest_available_date)]
             if ccy_slice.empty:
                 ccy_slice = df[df['currency'] == self.currency]
                 

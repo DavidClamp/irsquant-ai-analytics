@@ -55,7 +55,7 @@ def run_live_market_refresh():
         
     # Write the assets back safely to disk clusters for layouts to ingest
     try:
-        with open("data/g4_curves.json", "w") as f:
+        with open("data/g4_curves_live.json", "w") as f:
             json.dump(irs_snapshot, f, indent=4)
             
         with open("data/live_vol_surface.json", "w") as f:
