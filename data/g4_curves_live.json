@@ -1,432 +1,432 @@
 [
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "USD",
         "tenor": "1Y",
         "rate": 3.985
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "USD",
         "tenor": "2Y",
         "rate": 4.0
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "USD",
         "tenor": "3Y",
         "rate": 4.015
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "USD",
         "tenor": "5Y",
         "rate": 4.045
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "USD",
         "tenor": "7Y",
         "rate": 4.075
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "USD",
         "tenor": "10Y",
         "rate": 4.12
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "USD",
         "tenor": "15Y",
         "rate": 4.145
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "USD",
         "tenor": "20Y",
         "rate": 4.17
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "USD",
         "tenor": "30Y",
         "rate": 4.22
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "EUR",
         "tenor": "1Y",
         "rate": 2.915
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "EUR",
         "tenor": "2Y",
         "rate": 2.93
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "EUR",
         "tenor": "3Y",
         "rate": 2.945
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "EUR",
         "tenor": "5Y",
         "rate": 2.975
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "EUR",
         "tenor": "7Y",
         "rate": 3.005
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "EUR",
         "tenor": "10Y",
         "rate": 3.05
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "EUR",
         "tenor": "15Y",
         "rate": 3.075
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "EUR",
         "tenor": "20Y",
         "rate": 3.1
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "EUR",
         "tenor": "30Y",
         "rate": 3.15
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "GBP",
         "tenor": "1Y",
         "rate": 3.715
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "GBP",
         "tenor": "2Y",
         "rate": 3.73
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "GBP",
         "tenor": "3Y",
         "rate": 3.745
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "GBP",
         "tenor": "5Y",
         "rate": 3.775
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "GBP",
         "tenor": "7Y",
         "rate": 3.805
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "GBP",
         "tenor": "10Y",
         "rate": 3.85
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "GBP",
         "tenor": "15Y",
         "rate": 3.875
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "GBP",
         "tenor": "20Y",
         "rate": 3.9
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "GBP",
         "tenor": "30Y",
         "rate": 3.95
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "JPY",
         "tenor": "1Y",
         "rate": 0.315
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "JPY",
         "tenor": "2Y",
         "rate": 0.33
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "JPY",
         "tenor": "3Y",
         "rate": 0.345
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "JPY",
         "tenor": "5Y",
         "rate": 0.375
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "JPY",
         "tenor": "7Y",
         "rate": 0.405
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "JPY",
         "tenor": "10Y",
         "rate": 0.45
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "JPY",
         "tenor": "15Y",
         "rate": 0.475
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "JPY",
         "tenor": "20Y",
         "rate": 0.5
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "JPY",
         "tenor": "30Y",
         "rate": 0.55
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "CHF",
         "tenor": "1Y",
         "rate": 1.015
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "CHF",
         "tenor": "2Y",
         "rate": 1.03
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "CHF",
         "tenor": "3Y",
         "rate": 1.045
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "CHF",
         "tenor": "5Y",
         "rate": 1.075
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "CHF",
         "tenor": "7Y",
         "rate": 1.105
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "CHF",
         "tenor": "10Y",
         "rate": 1.15
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "CHF",
         "tenor": "15Y",
         "rate": 1.175
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "CHF",
         "tenor": "20Y",
         "rate": 1.2
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "CHF",
         "tenor": "30Y",
         "rate": 1.25
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "NOK",
         "tenor": "1Y",
         "rate": 3.765
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "NOK",
         "tenor": "2Y",
         "rate": 3.78
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "NOK",
         "tenor": "3Y",
         "rate": 3.795
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "NOK",
         "tenor": "5Y",
         "rate": 3.825
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "NOK",
         "tenor": "7Y",
         "rate": 3.855
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "NOK",
         "tenor": "10Y",
         "rate": 3.9
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "NOK",
         "tenor": "15Y",
         "rate": 3.925
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "NOK",
         "tenor": "20Y",
         "rate": 3.95
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "NOK",
         "tenor": "30Y",
         "rate": 4.0
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "SEK",
         "tenor": "1Y",
         "rate": 2.615
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "SEK",
         "tenor": "2Y",
         "rate": 2.63
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "SEK",
         "tenor": "3Y",
         "rate": 2.645
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "SEK",
         "tenor": "5Y",
         "rate": 2.675
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "SEK",
         "tenor": "7Y",
         "rate": 2.705
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "SEK",
         "tenor": "10Y",
         "rate": 2.75
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "SEK",
         "tenor": "15Y",
         "rate": 2.775
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "SEK",
         "tenor": "20Y",
         "rate": 2.8
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "SEK",
         "tenor": "30Y",
         "rate": 2.85
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "ZAR",
         "tenor": "1Y",
         "rate": 7.715
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "ZAR",
         "tenor": "2Y",
         "rate": 7.73
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "ZAR",
         "tenor": "3Y",
         "rate": 7.745
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "ZAR",
         "tenor": "5Y",
         "rate": 7.775
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "ZAR",
         "tenor": "7Y",
         "rate": 7.805
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "ZAR",
         "tenor": "10Y",
         "rate": 7.85
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "ZAR",
         "tenor": "15Y",
         "rate": 7.875
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "ZAR",
         "tenor": "20Y",
         "rate": 7.9
     },
     {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "currency": "ZAR",
         "tenor": "30Y",
         "rate": 7.95

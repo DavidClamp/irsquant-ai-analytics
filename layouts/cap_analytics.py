@@ -7,6 +7,7 @@ from dash import dcc, html, Input, Output
 import dash_bootstrap_components as dbc
 from vol_surfaces_core import VolatilitySurfaceStripper
 
+
 def render_cap_layout():
     """
     Assembles the decoupled HTML/Dash UI view layout tree for the linear Cap/Floor strip desk.
@@ -20,13 +21,15 @@ def render_cap_layout():
                 children=[
                     dbc.Col(md=6, children=[
                         html.H4("Caplet / Floorlet Stripping Desk", className="text-success fw-bold m-0"),
-                        html.P("Flat Volatility Curve Stripping Across Linear Interest Rate Option Term Structures", className="text-muted small m-0")
+                        html.P("Flat Volatility Curve Stripping Across Linear Interest Rate Option Term Structures",
+                               className="text-muted small m-0")
                     ]),
                     dbc.Col(md=3, children=[
                         html.Label("Cap Currency Framework:", className="text-white small fw-bold mb-1"),
                         dcc.Dropdown(
                             id="cap-currency-selector",
-                            options=[{"label": f"{ccy} Cap Strip", "value": ccy} for ccy in ["USD", "EUR", "GBP", "JPY", "CHF", "NOK", "SEK", "ZAR"]],
+                            options=[{"label": f"{ccy} Cap Strip", "value": ccy}
+                                     for ccy in ["USD", "EUR", "GBP", "JPY", "CHF", "NOK", "SEK", "ZAR"]],
                             value="USD",
                             clearable=False,
                             className="text-dark fw-bold"  # HARDENED CONTRAST: Eliminates white-on-white text masking
@@ -44,7 +47,7 @@ def render_cap_layout():
                     ])
                 ]
             ),
-            
+
             # VOLATILITY RIBBON GRAPH CANVAS
             dbc.Row(
                 children=[
@@ -81,17 +84,17 @@ def register_cap_callbacks(app):
         try:
             stripper = VolatilitySurfaceStripper()
             tenor_years = float(swap_tenor.replace('Y', ''))
-            
+
             # Map an execution strike vector from 1.0% to 5.0%
             strike_grid = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
             flat_vols = []
-            
+
             for strike in strike_grid:
                 # Query our data stripper layer to clean, handle drops, and scale metrics
                 v = stripper.get_clean_atm_volatility(
-                    currency=currency, 
-                    target_date="2026-08-21", 
-                    option_expiry=strike, # Map strike vectors into coordinate loops
+                    currency=currency,
+                    target_date="2026-08-21",
+                    option_expiry=strike,  # Map strike vectors into coordinate loops
                     swap_tenor=tenor_years
                 )
                 flat_vols.append(v * 100.0)
@@ -102,7 +105,7 @@ def register_cap_callbacks(app):
 
         # 2. Build out a clean, high-contrast Plotly 2D ribbon profile
         fig = go.Figure()
-        
+
         # Add primary flat vol path
         fig.add_trace(go.Scatter(
             x=strike_grid,
@@ -112,7 +115,7 @@ def register_cap_callbacks(app):
             marker=dict(size=8, color='#ffffff', line=dict(color='#00bcff', width=2)),
             name='Stripped Flat Vol'
         ))
-        
+
         fig.update_layout(
             title=dict(
                 text=f"Stripped Flat Caplet Volatility Curve ({currency} - {swap_tenor} Underlying)",
@@ -125,5 +128,5 @@ def register_cap_callbacks(app):
             yaxis=dict(title='Flat Implied Volatility (%)', gridcolor='#1e2430', color='#8a99ad', range=[5, 45]),
             margin=dict(l=50, r=20, t=50, b=50)
         )
-        
+
         return fig
