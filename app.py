@@ -24,6 +24,7 @@ try:
     from layouts.cap_analytics import render_cap_layout, register_cap_callbacks
     from layouts.volatility_callbacks import register_global_volatility_pipelines
     from layouts.backtester import render_backtester_layout, register_backtester_callbacks
+    from layouts.deep_analysis import render_deep_analysis_layout, register_deep_analysis_callbacks
     from utils.report_gen import DailyRiskReportGenerator
     print("✔ STAGE 2: All 7 layout view panel modules successfully integrated.")
 except Exception as e:
@@ -116,6 +117,9 @@ try:
             return render_swaption_layout()
         elif active_tab == "tab-backtest":
             return render_backtester_layout()
+        elif active_tab == "tab-deep-matrix":
+            return render_deep_analysis_layout()
+        
         return html.Div("⚠️ Unknown Workspace View Segment Requested.", className="text-warning p-4")
 
     @app.callback(
@@ -140,6 +144,7 @@ try:
     register_cap_callbacks(app)
     register_global_volatility_pipelines(app)
     register_backtester_callbacks(app)
+    register_deep_analysis_callbacks(app)
 
     print("✔ STAGE 3: Web Server Node initialization completed successfully.")
 
