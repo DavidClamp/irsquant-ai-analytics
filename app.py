@@ -52,7 +52,7 @@ try:
                 className="bg-black border-bottom border-secondary mb-4 p-3 align-items-center rounded shadow-sm",
                 children=[
                     dbc.Col(md=8, children=[
-                        html.H1("IRSQuant NextGen Analytics Terminal",
+                        html.H1("IRSQuant Analytics Terminal",
                                 className="text-success fw-bold m-0 font-monospace", style={'letterSpacing': '-0.5px'}),
                         html.P("Standalone QuantLib C++ Asset Workstation | Proprietary RV Desk",
                                className="text-muted small m-0")
@@ -73,6 +73,8 @@ try:
                 className="mb-4 custom-tabs-container border-0",
                 children=[
                     dcc.Tab(label="Curve Diagnostics", value="tab-diagnostics", className="custom-tab text-white bg-dark border-0",
+                            selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
+                    dcc.Tab(label="Curve Rich/Cheap", value="tab-deep-matrix", className="custom-tab text-white bg-dark border-0",
                             selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
                     dcc.Tab(label="RV Butterfly Scanner", value="tab-scanner", className="custom-tab text-white bg-dark border-0",
                             selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
@@ -105,6 +107,8 @@ try:
     def render_workspace_view_segment(active_tab):
         if active_tab == "tab-diagnostics":
             return render_diagnostics_layout()
+        elif active_tab == "tab-deep-matrix":
+            return render_deep_analysis_layout()
         elif active_tab == "tab-scanner":
             return render_scanner_layout()
         elif active_tab == "tab-fly-sizer":
@@ -117,9 +121,7 @@ try:
             return render_swaption_layout()
         elif active_tab == "tab-backtest":
             return render_backtester_layout()
-        elif active_tab == "tab-deep-matrix":
-            return render_deep_analysis_layout()
-        
+                
         return html.Div("⚠️ Unknown Workspace View Segment Requested.", className="text-warning p-4")
 
     @app.callback(
