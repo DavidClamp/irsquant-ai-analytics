@@ -120,7 +120,7 @@ try:
         elif active_tab == "tab-option-vol":
             return render_swaption_layout()
         elif active_tab == "tab-backtest":
-            return render_deep_analysis_layout()
+            return render_backtester_layout()
                 
         return html.Div("⚠️ Unknown Workspace View Segment Requested.", className="text-warning p-4")
 
