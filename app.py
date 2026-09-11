@@ -80,11 +80,11 @@ try:
                             selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
                     dcc.Tab(label="3-Leg Fly Sizer", value="tab-fly-sizer", className="custom-tab text-white bg-dark border-0",
                             selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
-                    dcc.Tab(label="2-Leg Basis Desk", value="tab-basis-desk", className="custom-tab text-white bg-dark border-0",
+                    dcc.Tab(label="2-Leg Curve Sizer", value="tab-basis-desk", className="custom-tab text-white bg-dark border-0",
                             selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
                     dcc.Tab(label="Caplet Stripping", value="tab-caplet-stripping", className="custom-tab text-white bg-dark border-0",
                             selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
-                    dcc.Tab(label="Option Vol Desks", value="tab-option-vol", className="custom-tab text-white bg-dark border-0",
+                    dcc.Tab(label="Swaption Vol", value="tab-option-vol", className="custom-tab text-white bg-dark border-0",
                             selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
                     dcc.Tab(label="Historical Backtest", value="tab-backtest", className="custom-tab text-white bg-dark border-0",
                             selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
@@ -120,7 +120,7 @@ try:
         elif active_tab == "tab-option-vol":
             return render_swaption_layout()
         elif active_tab == "tab-backtest":
-            return render_backtester_layout()
+            return render_deep_analysis_layout()
                 
         return html.Div("⚠️ Unknown Workspace View Segment Requested.", className="text-warning p-4")
 
