@@ -4,8 +4,10 @@ from .scanner import render_scanner_layout, register_scanner_callbacks
 from .fly_sizer import render_fly_layout, register_fly_callbacks
 from .execution import render_basis_layout, register_basis_callbacks
 from .swaption_analytics import render_swaption_layout
-from .cap_analytics import render_cap_layout, register_cap_callbacks
+from .cap_analytics import render_cap_layout
 from .volatility_callbacks import register_global_volatility_pipelines
+from .deep_analysis import render_deep_analysis_layout, register_deep_analysis_callbacks
+from .backtester import render_backtester_layout, register_backtester_callbacks
 
 __all__ = [
     'render_diagnostics_layout',
@@ -19,5 +21,9 @@ __all__ = [
     'render_swaption_layout',
     'render_cap_layout',
     'register_cap_callbacks',
-    'register_global_volatility_pipelines'
+    'register_global_volatility_pipelines', 
+    'render_deep_analysis_layout',
+    'register_deep_analysis_callbacks',
+    'render_backtester_layout',           
+    'register_backtester_callbacks'
 ]

@@ -1,17 +1,13 @@
-# layouts/cap_analytics.py - G4 & EM MULTI-CURRENCY INTEREST RATE CAP/FLOOR MATRIX DESK
-import json
-import math
+# layouts/cap_analytics.py - MULTI-CURRENCY CAP/FLOOR MATRIX GRAPHICS VIEWONLY
 import numpy as np
-from dash import html, dcc, Input, Output, State, ALL
+from dash import html, dcc
 import dash_bootstrap_components as dbc
-
-# INGEST MASTER MULTI-CURRENCY SPECIFICATIONS NATIVELY
 from config import GLOBAL_UNIVERSE
 
 def render_cap_layout():
     """
-    Renders an institutional front-office pricing grid tool for Interest Rate Caps and Floors
-    across the active 8-currency portfolio universe.
+    Renders the front-office layout shell for the Cap and Floor Analytics Desk.
+    All data processing has been decoupled and moved to layouts/volatility_callbacks.py.
     """
     currency_dropdown_options = [
         {"label": f"{ccy} Cap/Floor Universe", "value": ccy} for ccy in GLOBAL_UNIVERSE
@@ -26,8 +22,6 @@ def render_cap_layout():
                         html.H4("🛡️ Interest Rate Cap & Floor Analytics Desk", className="text-info fw-bold mb-1"),
                         html.P("Price long-dated linear options chains, evaluate premium cushions, and track aggregated portfolio delta vectors.", className="text-muted small m-0")
                     ]),
-                    
-                    # SYSTEM AUTOMATED MULTI-CURRENCY DROPDOWN SELECTOR
                     dbc.Col(md=4, className="text-end", children=[
                         html.Div([
                             html.Label("Currency Context:", className="text-white-50 small monospace me-2", style={'fontSize': '11px'}),
@@ -47,8 +41,6 @@ def render_cap_layout():
                     ])
                 ]
             ),
-            
-            # Interactive Cap/Floor Parameter Selection Overlay
             dbc.Row(
                 className="mb-4",
                 children=[
@@ -94,8 +86,6 @@ def render_cap_layout():
                     ])
                 ]
             ),
-            
-            # Focused Analytics Grid Canvas Slot
             dbc.Row(
                 children=[
                     dbc.Col(md=12, children=[

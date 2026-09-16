@@ -1,66 +1,182 @@
-{
-    "USD": {
-        "update_timestamp": "2026-09-11 08:41:11",
-        "atm_vol_bps": 82.5,
-        "sabr_alpha": 0.045,
-        "sabr_beta": 0.5,
-        "sabr_rho": -0.22,
-        "sabr_volvol": 0.41
+[
+    {
+        "currency": "USD",
+        "expiry": "1M",
+        "skew_bucket": "10D Put",
+        "implied_normal_vol_bps": 82.5
     },
-    "EUR": {
-        "update_timestamp": "2026-09-11 08:41:11",
-        "atm_vol_bps": 82.5,
-        "sabr_alpha": 0.045,
-        "sabr_beta": 0.5,
-        "sabr_rho": -0.22,
-        "sabr_volvol": 0.41
+    {
+        "currency": "USD",
+        "expiry": "1M",
+        "skew_bucket": "25D Put",
+        "implied_normal_vol_bps": 74.0
     },
-    "GBP": {
-        "update_timestamp": "2026-09-11 08:41:11",
-        "atm_vol_bps": 82.5,
-        "sabr_alpha": 0.045,
-        "sabr_beta": 0.5,
-        "sabr_rho": -0.22,
-        "sabr_volvol": 0.41
+    {
+        "currency": "USD",
+        "expiry": "1M",
+        "skew_bucket": "ATM",
+        "implied_normal_vol_bps": 68.5
     },
-    "JPY": {
-        "update_timestamp": "2026-09-11 08:41:11",
-        "atm_vol_bps": 45.0,
-        "sabr_alpha": 0.045,
-        "sabr_beta": 0.5,
-        "sabr_rho": -0.22,
-        "sabr_volvol": 0.41
+    {
+        "currency": "USD",
+        "expiry": "1M",
+        "skew_bucket": "25D Call",
+        "implied_normal_vol_bps": 75.2
     },
-    "CHF": {
-        "update_timestamp": "2026-09-11 08:41:11",
-        "atm_vol_bps": 115.0,
-        "sabr_alpha": 0.045,
-        "sabr_beta": 0.5,
-        "sabr_rho": -0.22,
-        "sabr_volvol": 0.41
+    {
+        "currency": "USD",
+        "expiry": "1M",
+        "skew_bucket": "10D Call",
+        "implied_normal_vol_bps": 84.6
     },
-    "NOK": {
-        "update_timestamp": "2026-09-11 08:41:11",
-        "atm_vol_bps": 115.0,
-        "sabr_alpha": 0.045,
-        "sabr_beta": 0.5,
-        "sabr_rho": -0.22,
-        "sabr_volvol": 0.41
+    {
+        "currency": "USD",
+        "expiry": "3M",
+        "skew_bucket": "10D Put",
+        "implied_normal_vol_bps": 84.2
     },
-    "SEK": {
-        "update_timestamp": "2026-09-11 08:41:11",
-        "atm_vol_bps": 115.0,
-        "sabr_alpha": 0.045,
-        "sabr_beta": 0.5,
-        "sabr_rho": -0.22,
-        "sabr_volvol": 0.41
+    {
+        "currency": "USD",
+        "expiry": "3M",
+        "skew_bucket": "25D Put",
+        "implied_normal_vol_bps": 75.7
     },
-    "ZAR": {
-        "update_timestamp": "2026-09-11 08:41:11",
-        "atm_vol_bps": 115.0,
-        "sabr_alpha": 0.045,
-        "sabr_beta": 0.5,
-        "sabr_rho": -0.22,
-        "sabr_volvol": 0.41
+    {
+        "currency": "USD",
+        "expiry": "3M",
+        "skew_bucket": "ATM",
+        "implied_normal_vol_bps": 70.2
+    },
+    {
+        "currency": "USD",
+        "expiry": "3M",
+        "skew_bucket": "25D Call",
+        "implied_normal_vol_bps": 76.9
+    },
+    {
+        "currency": "USD",
+        "expiry": "3M",
+        "skew_bucket": "10D Call",
+        "implied_normal_vol_bps": 86.3
+    },
+    {
+        "currency": "USD",
+        "expiry": "6M",
+        "skew_bucket": "10D Put",
+        "implied_normal_vol_bps": 86.4
+    },
+    {
+        "currency": "USD",
+        "expiry": "6M",
+        "skew_bucket": "25D Put",
+        "implied_normal_vol_bps": 77.9
+    },
+    {
+        "currency": "USD",
+        "expiry": "6M",
+        "skew_bucket": "ATM",
+        "implied_normal_vol_bps": 72.4
+    },
+    {
+        "currency": "USD",
+        "expiry": "6M",
+        "skew_bucket": "25D Call",
+        "implied_normal_vol_bps": 79.1
+    },
+    {
+        "currency": "USD",
+        "expiry": "6M",
+        "skew_bucket": "10D Call",
+        "implied_normal_vol_bps": 88.5
+    },
+    {
+        "currency": "USD",
+        "expiry": "1Y",
+        "skew_bucket": "10D Put",
+        "implied_normal_vol_bps": 89.1
+    },
+    {
+        "currency": "USD",
+        "expiry": "1Y",
+        "skew_bucket": "25D Put",
+        "implied_normal_vol_bps": 80.6
+    },
+    {
+        "currency": "USD",
+        "expiry": "1Y",
+        "skew_bucket": "ATM",
+        "implied_normal_vol_bps": 75.1
+    },
+    {
+        "currency": "USD",
+        "expiry": "1Y",
+        "skew_bucket": "25D Call",
+        "implied_normal_vol_bps": 81.8
+    },
+    {
+        "currency": "USD",
+        "expiry": "1Y",
+        "skew_bucket": "10D Call",
+        "implied_normal_vol_bps": 91.2
+    },
+    {
+        "currency": "USD",
+        "expiry": "2Y",
+        "skew_bucket": "10D Put",
+        "implied_normal_vol_bps": 92.6
+    },
+    {
+        "currency": "USD",
+        "expiry": "2Y",
+        "skew_bucket": "25D Put",
+        "implied_normal_vol_bps": 84.1
+    },
+    {
+        "currency": "USD",
+        "expiry": "2Y",
+        "skew_bucket": "ATM",
+        "implied_normal_vol_bps": 78.6
+    },
+    {
+        "currency": "USD",
+        "expiry": "2Y",
+        "skew_bucket": "25D Call",
+        "implied_normal_vol_bps": 85.3
+    },
+    {
+        "currency": "USD",
+        "expiry": "2Y",
+        "skew_bucket": "10D Call",
+        "implied_normal_vol_bps": 94.7
+    },
+    {
+        "currency": "USD",
+        "expiry": "5Y",
+        "skew_bucket": "10D Put",
+        "implied_normal_vol_bps": 96.3
+    },
+    {
+        "currency": "USD",
+        "expiry": "5Y",
+        "skew_bucket": "25D Put",
+        "implied_normal_vol_bps": 87.8
+    },
+    {
+        "currency": "USD",
+        "expiry": "5Y",
+        "skew_bucket": "ATM",
+        "implied_normal_vol_bps": 82.3
+    },
+    {
+        "currency": "USD",
+        "expiry": "5Y",
+        "skew_bucket": "25D Call",
+        "implied_normal_vol_bps": 89.0
+    },
+    {
+        "currency": "USD",
+        "expiry": "5Y",
+        "skew_bucket": "10D Call",
+        "implied_normal_vol_bps": 98.4
     }
-}
+]

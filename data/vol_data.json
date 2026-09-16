@@ -1,26 +1,259 @@
-[
-  {
-    "date": "2026-08-14",
+{
     "currency": "USD",
-    "expiry": "1Y",
-    "tenor": "5Y",
-    "strike_offset_bps": -100,
-    "implied_vol": 42.5
-  },
-  {
-    "date": "2026-08-14",
-    "currency": "USD",
-    "expiry": "1Y",
-    "tenor": "5Y",
-    "strike_offset_bps": 0,
-    "implied_vol": 35.2
-  },
-  {
-    "date": "2026-08-14",
-    "currency": "USD",
-    "expiry": "1Y",
-    "tenor": "5Y",
-    "strike_offset_bps": 100,
-    "implied_vol": 38.8
-  }
-]
+    "asset_class": "Rates_Swaption",
+    "pricing_session": "NY_Close_1600",
+    "data_feed": [
+        {
+            "expiry": "1M",
+            "underlying_tenor": "1Y",
+            "atm_vol_bps": 70.0,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "1M",
+            "underlying_tenor": "2Y",
+            "atm_vol_bps": 69.2,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "1M",
+            "underlying_tenor": "3Y",
+            "atm_vol_bps": 68.4,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "1M",
+            "underlying_tenor": "5Y",
+            "atm_vol_bps": 67.6,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "1M",
+            "underlying_tenor": "10Y",
+            "atm_vol_bps": 66.8,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "1M",
+            "underlying_tenor": "30Y",
+            "atm_vol_bps": 66.0,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "3M",
+            "underlying_tenor": "1Y",
+            "atm_vol_bps": 72.5,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "3M",
+            "underlying_tenor": "2Y",
+            "atm_vol_bps": 71.7,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "3M",
+            "underlying_tenor": "3Y",
+            "atm_vol_bps": 70.9,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "3M",
+            "underlying_tenor": "5Y",
+            "atm_vol_bps": 70.1,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "3M",
+            "underlying_tenor": "10Y",
+            "atm_vol_bps": 69.3,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "3M",
+            "underlying_tenor": "30Y",
+            "atm_vol_bps": 68.5,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "6M",
+            "underlying_tenor": "1Y",
+            "atm_vol_bps": 75.0,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "6M",
+            "underlying_tenor": "2Y",
+            "atm_vol_bps": 74.2,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "6M",
+            "underlying_tenor": "3Y",
+            "atm_vol_bps": 73.4,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "6M",
+            "underlying_tenor": "5Y",
+            "atm_vol_bps": 72.6,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "6M",
+            "underlying_tenor": "10Y",
+            "atm_vol_bps": 71.8,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "6M",
+            "underlying_tenor": "30Y",
+            "atm_vol_bps": 71.0,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "1Y",
+            "underlying_tenor": "1Y",
+            "atm_vol_bps": 77.5,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "1Y",
+            "underlying_tenor": "2Y",
+            "atm_vol_bps": 76.7,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "1Y",
+            "underlying_tenor": "3Y",
+            "atm_vol_bps": 75.9,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "1Y",
+            "underlying_tenor": "5Y",
+            "atm_vol_bps": 75.1,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "1Y",
+            "underlying_tenor": "10Y",
+            "atm_vol_bps": 74.3,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "1Y",
+            "underlying_tenor": "30Y",
+            "atm_vol_bps": 73.5,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "2Y",
+            "underlying_tenor": "1Y",
+            "atm_vol_bps": 80.0,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "2Y",
+            "underlying_tenor": "2Y",
+            "atm_vol_bps": 79.2,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "2Y",
+            "underlying_tenor": "3Y",
+            "atm_vol_bps": 78.4,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "2Y",
+            "underlying_tenor": "5Y",
+            "atm_vol_bps": 77.6,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "2Y",
+            "underlying_tenor": "10Y",
+            "atm_vol_bps": 76.8,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "2Y",
+            "underlying_tenor": "30Y",
+            "atm_vol_bps": 76.0,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "5Y",
+            "underlying_tenor": "1Y",
+            "atm_vol_bps": 82.5,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "5Y",
+            "underlying_tenor": "2Y",
+            "atm_vol_bps": 81.7,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "5Y",
+            "underlying_tenor": "3Y",
+            "atm_vol_bps": 80.9,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "5Y",
+            "underlying_tenor": "5Y",
+            "atm_vol_bps": 80.1,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "5Y",
+            "underlying_tenor": "10Y",
+            "atm_vol_bps": 79.3,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        },
+        {
+            "expiry": "5Y",
+            "underlying_tenor": "30Y",
+            "atm_vol_bps": 78.5,
+            "risk_reversal_25d": -3.5,
+            "strangle_25d": 4.2
+        }
+    ]
+}
