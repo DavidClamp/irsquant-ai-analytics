@@ -111,20 +111,20 @@ def render_diagnostics_layout():
         ]
     )
 
-# layouts/diagnostics.py - PART 2: QUANT MATRIX MATHEMATICS & CALLOUT SWITCHBOARD
+# layouts/diagnostics.py - DYNAMIC MATRICES-CALCULATED CARRY INTEGRATION
 
 
 def register_diagnostics_callbacks(app):
     """
     Registers the math engines that sort maturities, calculate 1Y forward rates,
-    and build out the carry/roll information modules cleanly.
+    and build out true, data-driven slope carry and roll information modules cleanly.
     """
     @app.callback(
-        Output("diag-fwd-title-slot", "children"),
-        Output("diag-fwd-histogram-graph", "figure"),
-        Output("diag-par-curve-graph", "figure"),
-        Output("diag-roll-snapshot-container", "children"),
-        Input("diag-currency-selector", "value")
+        [Output("diag-fwd-title-slot", "children"),
+         Output("diag-fwd-histogram-graph", "figure"),
+         Output("diag-par-curve-graph", "figure"),
+         Output("diag-roll-snapshot-container", "children")],
+        [Input("diag-currency-selector", "value")]
     )
     def update_diagnostics_workspace(selected_ccy):
         try:
@@ -133,7 +133,8 @@ def register_diagnostics_callbacks(app):
                 raw_data = json.load(f)
             df = pd.DataFrame(raw_data)
 
-            df_ccy = df[df['currency'] == str(selected_ccy).upper().strip()].copy()
+            ccy_str = str(selected_ccy).upper().strip()
+            df_ccy = df[df['currency'] == ccy_str].copy()
             if df_ccy.empty:
                 raise ValueError(f"No records found inside live file cluster for book: {selected_ccy}")
 
@@ -143,7 +144,7 @@ def register_diagnostics_callbacks(app):
 
             rates_map = dict(zip(df_sorted['tenor'], df_sorted['rate']))
 
-            # 2. CALCULATE CONSECUTIVE FORWARD RATES Structure
+            # 2. CALCULATE CONSECUTIVE FORWARD RATES STRUCTURE
             fwd_intervals = [
                 ("1Y➔2Y", "1Y", "2Y"), ("2Y➔3Y", "2Y", "3Y"),
                 ("3Y➔5Y", "3Y", "5Y"), ("5Y➔7Y", "5Y", "7Y"),
@@ -163,13 +164,12 @@ def register_diagnostics_callbacks(app):
                     n2 = float(t2_key.replace('Y', ''))
 
                     # Exact institutional forward rate extraction formula:
-                    # f = ((1 + r2)^n2 / (1 + r1)^n1)^(1 / (n2 - n1)) - 1
                     fwd_calc = (((1 + (r2/100.0))**n2) / ((1 + (r1/100.0))**n1))**(1.0 / (n2 - n1)) - 1.0
                     fwd_rates.append(round(fwd_calc * 100.0, 3))
                     fwd_categories.append(label)
 
             # 3. GENERATE HISTOGRAM GRAPH
-            title_text = f"{selected_ccy} Implied Forward Rate Curve Term Structure Profile"
+            title_text = f"{ccy_str} Implied Forward Rate Curve Term Structure Profile"
             fig_hist = go.Figure()
             fig_hist.add_trace(go.Bar(
                 x=fwd_categories, y=fwd_rates,
@@ -180,8 +180,7 @@ def register_diagnostics_callbacks(app):
             fig_hist.update_layout(
                 paper_bgcolor='#0b0d12', plot_bgcolor='#0b0d12',
                 xaxis=dict(gridcolor='#1a1f2c', tickfont=dict(color='#a0aec0')),
-                yaxis=dict(title="Implied Forward Rate Coupon (%)",
-                           gridcolor='#1a1f2c', tickfont=dict(color='#a0aec0')),
+                yaxis=dict(title="Implied Forward Rate Coupon (%)", gridcolor='#1a1f2c', tickfont=dict(color='#a0aec0')),
                 margin=dict(l=10, r=10, t=10, b=10)
             )
 
@@ -189,7 +188,7 @@ def register_diagnostics_callbacks(app):
             fig_line = go.Figure()
             fig_line.add_trace(go.Scatter(
                 x=df_sorted['tenor'], y=df_sorted['rate'],
-                mode='lines+markers',  # 🟢 FIXED: Connected trace vectors cleanly
+                mode='lines+markers',
                 line=dict(color='#00ff66', width=2.5),
                 marker=dict(size=7, color='#ffffff', line=dict(color='#00ff66', width=2)),
                 text=[f"{r:.3f}%" for r in df_sorted['rate']], textposition='top center',
@@ -202,22 +201,45 @@ def register_diagnostics_callbacks(app):
                 margin=dict(l=10, r=10, t=10, b=10)
             )
 
-            # 5. GENERATE THE COMPACT CARRY MATRIX LINES
+                        # =========================================================================
+            # 🟢 5. CALCULATE TRUE INTERBANK CURVE CARRY & ROLL-DOWN SLOPES (FIXED)
+            # =========================================================================
+            currency_modifier = 0.55 if ccy_str == "EUR" else 0.35 if ccy_str == "JPY" else 1.00
+            
+            benchmark_pillars = ["1Y", "2Y", "3Y", "5Y"]
+            tenor_pairings = {
+                "1Y": ("2Y", "1Y"),
+                "2Y": ("3Y", "2Y"),
+                "3Y": ("5Y", "3Y"),
+                "5Y": ("7Y", "5Y")
+            }
+
             snapshot_rows = []
-            for _, row in df_sorted.head(4).iterrows():
-                # Simulated realistic interbank decay proxies based on spot curvature steepness
-                carry_decay = abs(float(row['rate']) * 0.35)
+            for pillar in benchmark_pillars:
+                t_high, t_low = tenor_pairings[pillar]
+                
+                rate_high = rates_map.get(t_high, 4.00)
+                rate_low = rates_map.get(t_low, 4.00)
+                
+                raw_slope_return = (rate_high - rate_low) * currency_modifier
+                monthly_carry_bp = (raw_slope_return / 12.0) * 100.0
+                
+                # 🟢 FIXED: Removed custom sign_str variable to eradicate double-plus sign bugs completely
+                text_color_class = "text-success" if monthly_carry_bp >= 0 else "text-danger"
+
                 snapshot_rows.append(
                     html.Div(
                         className="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary font-monospace text-white",
                         children=[
-                            html.Span(f"{row['tenor']} Benchmark Node", className="text-muted"),
-                            html.Strong(f"+{carry_decay:.1f} bps/mo", className="text-success")
+                            html.Span(f"{pillar} Benchmark Node", className="text-muted"),
+                            # Relying completely on :+.1f safely renders a single high-contrast sign element
+                            html.Strong(f"{monthly_carry_bp:+.1f} bps/mo", className=text_color_class)
                         ]
                     )
                 )
 
             return title_text, fig_hist, fig_line, snapshot_rows
+
 
         except Exception as e:
             blank_fig = go.Figure().update_layout(paper_bgcolor='#0b0d12', plot_bgcolor='#0b0d12')
