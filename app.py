@@ -21,7 +21,7 @@ try:
     from layouts.fly_sizer import render_fly_layout, register_fly_callbacks
     from layouts.execution import render_basis_layout, register_basis_callbacks
     from layouts.swaption_analytics import render_swaption_layout
-    from layouts.cap_analytics import render_cap_layout, register_cap_callbacks
+    from layouts.cap_analytics import render_cap_layout
     from layouts.volatility_callbacks import register_global_volatility_pipelines
     from layouts.backtester import render_backtester_layout, register_backtester_callbacks
     from layouts.deep_analysis import render_deep_analysis_layout, register_deep_analysis_callbacks
@@ -143,7 +143,6 @@ try:
     register_scanner_callbacks(app)
     register_fly_callbacks(app)
     register_basis_callbacks(app)
-    register_cap_callbacks(app)
     register_global_volatility_pipelines(app)
     register_backtester_callbacks(app)
     register_deep_analysis_callbacks(app)

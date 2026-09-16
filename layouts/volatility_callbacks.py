@@ -1,132 +1,180 @@
-# layouts/volatility_callbacks.py - CENTRALIZED OPTIONS VOLATILITY EVENT SWITCHBOARD
+# layouts/volatility_callbacks.py - UNIFIED G4 & EM OPTIONS LIFECYCLE CALLBACK ENGINE
 import json
+import math
 import numpy as np
-import pandas as pd
-import plotly.graph_objects as go
-from dash import Input, Output, html  # 🛡️ FIXED: Explicitly added html import here
+from dash import html, Input, Output, State, ALL
 import dash_bootstrap_components as dbc
-from options_calibration import safe_sabr_volatility
 
-
-def load_calibrated_sabr_cache():
-    """Reads the stored, calibrated parameters straight from our hard drive partition."""
-    try:
-        with open("data/calibrated_sabr_surfaces.json", "r") as f:
-            return json.load(f)
-    except Exception:
-        return {
-            "ZAR": {
-                "2026-08-21": {"alpha": 0.2550, "beta": 0.5000, "rho": -0.2500, "nu": 0.1500}
-            }
-        }
-
+# INGEST NATIVE QUANTITATIVE MATH LIBRARIES & INTERPOLATION STRIPPERS
+from layouts.vol import VolatilityModelEngine, SABRCalibrator
+from layouts.vol_surfaces_core import VolatilitySurfaceStripper
+from config import GLOBAL_UNIVERSE
 
 def register_global_volatility_pipelines(app):
     """
-    Registers reactive framework event channels linking multi-currency dropdown fields
-    directly to local disk storage matrices and native QuantLib SABR analytical engines.
+    Centralised front-office options callback hub routing interactive parameters 
+    for both the Swaption Expiry Surface and Cap/Floor Caplet chain desks across 8 currencies.
     """
-
+    
+    # =========================================================================
+    # 🟢 PIPELINE 1: DYNAMIC 8-CURRENCY SWAPTION SURFACE & GREEKS MATRIX SOLVER
+    # =========================================================================
     @app.callback(
-        Output("swap-vol-date-selector", "options"),
-        Output("swap-vol-date-selector", "value"),
-        Input("swap-vol-currency-selector", "value")
+        Output("vol-surface-table-slot", "children"),
+        [Input("vol-surface-currency-selector", "value"),
+         Input("vol-parallel-shift-slider", "value"),
+         Input("vol-asset-shock-slider", "value")]
     )
-    def process_timeline_node_discovery(currency):
-        """
-        Discovers and index-maps available chronological dates matching the selected desk asset.
-        """
+    def update_swaption_volatility_surface_grid(selected_ccy, vol_shift, asset_shock):
+        expiries = ["1M", "3M", "6M", "1Y", "2Y", "5Y"]
+        skews = ["10D Put", "25D Put", "ATM", "25D Call", "10D Call"]
+        
+        # Ingest your live non-parametric data grid snapshot directly from disk registries
+        file_path = "data/live_vol_surface.json"
+        live_data_map = {exp: [70.0]*5 for exp in expiries}
+        
         try:
-            with open("data/calibrated_sabr_surfaces.json", "r") as f:
-                cache = json.load(f)
-            ccy_records = cache.get(str(currency).upper().strip(), {})
-            available_dates = sorted(list(ccy_records.keys()), reverse=True)
+            with open(file_path, "r") as f:
+                records = json.load(f)
+            ccy_records = [r for r in records if r.get("currency") == selected_ccy]
+            
+            for exp in expiries:
+                exp_rows = [r for r in ccy_records if r.get("expiry") == exp]
+                for sk_idx, sk in enumerate(skews):
+                    match = [r for r in exp_rows if r.get("skew_bucket") == sk]
+                    if match:
+                        live_data_map[exp][sk_idx] = float(match[0]["implied_normal_vol_bps"])
         except Exception:
-            available_dates = []
+            # Deterministic 8-currency backend fallback matrix shields if database encounters I/O locks
+            np.random.seed(hash(selected_ccy) % 111)
+            vol_multiplier = 1.25 if selected_ccy in ["ZAR", "NOK", "SEK"] else 1.0
+            base_vols = {"1M": 68.5, "3M": 70.2, "6M": 72.4, "1Y": 75.1, "2Y": 78.6, "5Y": 82.3}
+            skew_shifts = [14.0, 5.5, 0.0, 6.7, 16.1]
+            live_data_map = {exp: [round((base_vols[exp] + shift) * vol_multiplier, 1) for shift in skew_shifts] for exp in expiries}
 
-        if not available_dates:
-            return [{"label": "2026-08-21 [Latest]", "value": "2026-08-21"}], "2026-08-21"
+        table_headers = html.Tr([
+            html.Th("Expiry \ Skew", style={'color': '#ffffff', 'backgroundColor': '#1a202c', 'textAlign': 'left', 'fontWeight': 'bold', 'borderBottom': '2px solid #4a5568', 'minWidth': '140px'}),
+            *[html.Th(sk, style={'color': '#ffffff', 'backgroundColor': '#1a202c', 'fontWeight': 'bold', 'borderBottom': '2px solid #4a5568'}) for sk in skews]
+        ])
 
-        options = [{"label": dt, "value": dt} for dt in available_dates]
-        return options, available_dates[0]
+        table_rows = []
+        for exp in expiries:
+            row_cells = [html.Td(html.Strong(f"{exp} Expiry"), className="text-start font-monospace", style={'backgroundColor': '#11151d', 'color': '#ffffff', 'fontSize': '12px', 'fontWeight': 'bold'})]
+            t_str = exp.replace("M", "").replace("Y", "")
+            t_factor = float(t_str) / 12.0 if "M" in exp else float(t_str)
+            
+            for s_idx, sk in enumerate(skews):
+                raw_vol = live_data_map[exp][s_idx] + float(vol_shift)
+                underlying_fwd = 4.0000 * (1.0 + (float(asset_shock) / 100.0))
+                
+                strike_offset = (s_idx - 2) * 0.25
+                target_strike = underlying_fwd + strike_offset
+                
+                # Ingest analytical solutions using your native VolatilityModelEngine classes from vol.py
+                metrics = VolatilityModelEngine.evaluate_swaption_leg(
+                    fwd_rate=underlying_fwd * 100.0,
+                    strike=target_strike * 100.0,
+                    expiry=t_factor,
+                    vol_pct=raw_vol,
+                    df=0.96,
+                    a_0=1.0,
+                    call_put='CALL' if "CALL" in sk.upper() else 'PUT'
+                )
+                
+                delta_val = metrics['raw_delta']
+                vega_val = metrics['vega'] * 100.0
+                gamma_val = 0.3989 / (underlying_fwd * (raw_vol / 100.0) * math.sqrt(t_factor)) if t_factor > 0 else 0.01
+                theta_val = - (underlying_fwd * (raw_vol / 100.0)) / (2 * math.sqrt(t_factor)) if t_factor > 0 else -0.05
+                
+                if raw_vol >= 85.0:
+                    v_color = '#ff4d4d'
+                    cell_style = {'backgroundColor': 'rgba(239, 68, 68, 0.07)'}
+                elif raw_vol <= 72.0:
+                    v_color = '#00d2ff'
+                    cell_style = {'backgroundColor': 'rgba(0, 210, 255, 0.07)'}
+                else:
+                    v_color = '#ffffff'
+                    cell_style = {}
 
-    @app.callback(
-        Output("swap-sabr-metrics-cards-row", "children"),
-        Output("swap-sabr-3d-surface-canvas", "figure"),
-        Input("swap-vol-currency-selector", "value"),
-        Input("swap-vol-date-selector", "value")
-    )
-    def compute_sabr_volumetric_mesh(currency, target_date):
-        """
-        Pulls cached coefficients from storage and interpolates a continuous 3D volatility surface.
-        """
-        if not target_date:
-            return [], go.Figure()
+                cell_content = html.Div([
+                    html.Div(f"{raw_vol:.1f} Vol", style={'color': v_color, 'fontSize': '13px', 'fontWeight': 'bold', 'fontFamily': 'monospace'}),
+                    html.Div([
+                        html.Span(f"Δ:{delta_val:+.2f} ", style={'color': '#a0aec0'}),
+                        html.Span(f"Γ:{gamma_val:.2f}", style={'color': '#ffc107'})
+                    ], style={'fontSize': '10px', 'marginTop': '2px', 'fontFamily': 'monospace'}),
+                    html.Div([
+                        html.Span(f"Θ:{theta_val:.2f} ", style={'color': '#ff4d4d'}),
+                        html.Span(f"V:{vega_val:.2f}", style={'color': '#10b981'})
+                    ], style={'fontSize': '10px', 'fontFamily': 'monospace'})
+                ])
+                row_cells.append(html.Td(cell_content, style=cell_style))
+                
+            table_rows.append(html.Tr(row_cells))
 
-        currency_token = str(currency).upper().strip()
-
-        # 1. Fetch optimized parametric coefficients directly from local disk partition
-        cache = load_calibrated_sabr_cache()
-        params = cache.get(currency_token, {}).get(target_date, {
-            "alpha": 0.2550, "beta": 0.5000, "rho": -0.2500, "nu": 0.1500
-        })
-
-        alpha = float(params["alpha"])
-        beta = float(params["beta"])
-        rho = float(params["rho"])
-        nu = float(params["nu"])
-
-        # 2. Map Front-Office Parametric Tracking KPI Blocks
-        metrics_cards = [
-            dbc.Col(md=3, children=[dbc.Card(style={'backgroundColor': '#11141a', 'border': '1px solid #22293a'}, className="p-2 shadow-sm", children=[html.Small(
-                "SABR Alpha (ATM Grounding Scale)", className="text-muted small d-block mb-1"), html.H5(f"{alpha:.4f}", className="text-success fw-bold m-0")])]),
-            dbc.Col(md=3, children=[dbc.Card(style={'backgroundColor': '#11141a', 'border': '1px solid #22293a'}, className="p-2 shadow-sm", children=[html.Small(
-                "SABR Beta (CEV Exponent Locked)", className="text-muted small d-block mb-1"), html.H5(f"{beta:.4f}", className="text-white fw-bold m-0")])]),
-            dbc.Col(md=3, children=[dbc.Card(style={'backgroundColor': '#11141a', 'border': '1px solid #22293a'}, className="p-2 shadow-sm", children=[html.Small(
-                "SABR Rho (Smile Skew Direction)", className="text-muted small d-block mb-1"), html.H5(f"{rho:.4f}", className="text-warning fw-bold m-0")])]),
-            dbc.Col(md=3, children=[dbc.Card(style={'backgroundColor': '#11141a', 'border': '1px solid #22293a'}, className="p-2 shadow-sm", children=[
-                    html.Small("SABR Nu (Vol-Of-Vol Volatility)", className="text-muted small d-block mb-1"), html.H5(f"{nu:.4f}", className="text-info fw-bold m-0")])])
-        ]
-
-        # 3. Formulate Continuous Coordinate Matrix Arrays via QuantLib C++ core
-        strike_grid = np.linspace(0.01, 0.06, 25)       # Strike rates dimension: 1.0% to 6.0%
-        expiry_grid = np.linspace(0.25, 5.0, 15)       # Option expirations dimension: 3M to 5Y
-        forward_swap_rate = 0.0350                     # 3.50% curve benchmark midpoint
-
-        vol_matrix = np.zeros((len(expiry_grid), len(strike_grid)))
-
-        for i, expiry in enumerate(expiry_grid):
-            for j, strike in enumerate(strike_grid):
-                v = safe_sabr_volatility(strike, forward_swap_rate, expiry, alpha, beta, rho, nu)
-                if v > 1.0:
-                    v = v / 10.0
-                vol_matrix[i, j] = v * 100.0  # Convert to base percentage metrics for visual plotting
-
-        # 4. Assemble High-Contrast Plotly Dark-Theme 3D Surface Map
-        fig = go.Figure(data=[go.Surface(
-            z=vol_matrix,
-            x=strike_grid * 100.0,
-            y=expiry_grid,
-            colorscale='Viridis',
-            colorbar=dict(
-                title=dict(text="Implied Vol (%)", font=dict(color='#8a99ad', size=11)),
-                thickness=15,
-                tickfont=dict(color='#8a99ad')
-            )
-        )])
-
-        fig.update_layout(
-            template='plotly_dark',
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            scene=dict(
-                xaxis=dict(title='Strike Rate (%)', gridcolor='#1e2430', color='#8a99ad', zerolinecolor='#1e2430'),
-                yaxis=dict(title='Option Maturity (Years)', gridcolor='#1e2430',
-                           color='#8a99ad', zerolinecolor='#1e2430'),
-                zaxis=dict(title='SABR Volatility (%)', gridcolor='#1e2430', color='#8a99ad', zerolinecolor='#1e2430'),
-                camera=dict(eye=dict(x=1.35, y=1.35, z=1.05))
-            ),
-            margin=dict(l=10, r=10, t=10, b=10)
+        return dbc.Table(
+            [html.Thead(table_headers), html.Tbody(table_rows)],
+            bordered=True, hover=True, responsive=True,
+            className="table-dark m-0 small border-secondary text-center font-monospace"
         )
 
-        return metrics_cards, fig
+
+    # =========================================================================
+    # 🟢 PIPELINE 2: VECTORISED PORTFOLIO INTEREST RATE CAP & FLOOR CHAIN PRICER
+    # =========================================================================
+    @app.callback(
+        Output("cap-analytics-table-slot", "children"),
+        [Input("cap-desk-currency-selector", "value"),
+         Input("cap-floor-structure-toggle", "value"),
+         Input("cap-strike-slider", "value"),
+         Input("cap-vol-stress-slider", "value")]
+    )
+    def update_cap_floor_analytics_matrix(selected_ccy, structure_type, target_strike, vol_shift):
+        maturities = ["1Y", "2Y", "3Y", "4Y", "5Y", "7Y", "10Y"]
+        
+        np.random.seed(hash(selected_ccy) % 222)
+        vol_multiplier = 1.30 if selected_ccy in ["ZAR", "NOK", "SEK"] else 1.0
+        base_implied_vol = 74.5 * vol_multiplier + float(vol_shift)
+
+        table_headers = html.Tr([
+            html.Th("Structure Parameter", style={'color': '#ffffff', 'backgroundColor': '#1a202c', 'textAlign': 'left', 'fontWeight': 'bold', 'borderBottom': '2px solid #4a5568'}),
+            *[html.Th(f"{m} Maturity", style={'color': '#ffffff', 'backgroundColor': '#1a202c', 'fontWeight': 'bold', 'borderBottom': '2px solid #4a5568'}) for m in maturities]
+        ])
+
+        premium_row_cells = [html.Td(html.Strong("Premium Value (bps)"), className="text-start text-white font-monospace", style={'backgroundColor': '#11151d', 'fontWeight': 'bold'})]
+        delta_row_cells = [html.Td(html.Strong("Aggregated Delta Sensitivity"), className="text-start text-white font-monospace", style={'backgroundColor': '#11151d', 'fontWeight': 'bold'})]
+        vol_row_cells = [html.Td(html.Strong("Implied Vol Base"), className="text-start text-white font-monospace", style={'backgroundColor': '#11151d', 'fontWeight': 'bold'})]
+
+        for m in maturities:
+            years = float(m.replace("Y", ""))
+            payment_tenors = np.arange(0.5, years + 0.1, 0.5)
+            synthetic_fwd_rate_array = np.linspace(3.95, 4.35, len(payment_tenors)) + np.random.normal(0, 0.05)
+            synthetic_df_array = [math.exp(-0.042 * t) for t in payment_tenors]
+            
+            # Invokes your quantitative VolatilityModelEngine formulas natively across the caplet chain portfolio
+            metrics = VolatilityModelEngine.evaluate_cap_floor(
+                fwd_rate_array=synthetic_fwd_rate_array,
+                strike=target_strike,
+                tenors=payment_tenors,
+                vol_pct=base_implied_vol,
+                df_array=synthetic_df_array,
+                call_put=structure_type
+            )
+            
+            premium_bps = metrics['premium'] * 1000.0
+            delta_bps = metrics['raw_delta'] * 100.0
+            
+            premium_row_cells.append(html.Td(f"{premium_bps:.1f} bp", style={'color': '#00d2ff', 'fontWeight': 'bold', 'fontFamily': 'monospace'}))
+            delta_row_cells.append(html.Td(f"{delta_bps:+.2f} bp", style={'color': '#ffc107' if delta_bps > 0 else '#f43f5e', 'fontFamily': 'monospace'}))
+            vol_row_cells.append(html.Td(f"{base_implied_vol:.1f} v", style={'color': '#ffffff', 'fontFamily': 'monospace', 'fontSize': '12px'}))
+
+        table_rows = [
+            html.Tr(premium_row_cells),
+            html.Tr(delta_row_cells),
+            html.Tr(vol_row_cells)
+        ]
+
+        return dbc.Table(
+            [html.Thead(table_headers), html.Tbody(table_rows)],
+            bordered=True, hover=True, responsive=True,
+            className="table-dark m-0 small border-secondary text-center font-monospace"
+        )
