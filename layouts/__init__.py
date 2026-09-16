@@ -20,10 +20,9 @@ __all__ = [
     'register_basis_callbacks',
     'render_swaption_layout',
     'render_cap_layout',
-    'register_cap_callbacks',
     'register_global_volatility_pipelines', 
     'render_deep_analysis_layout',
     'register_deep_analysis_callbacks',
-    'render_backtester_layout',           
+    'render_backtester_layout',             
     'register_backtester_callbacks'
 ]

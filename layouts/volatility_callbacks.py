@@ -5,9 +5,9 @@ import numpy as np
 from dash import html, Input, Output, State, ALL
 import dash_bootstrap_components as dbc
 
-# INGEST NATIVE QUANTITATIVE MATH LIBRARIES & INTERPOLATION STRIPPERS
-from layouts.vol import VolatilityModelEngine, SABRCalibrator
-from layouts.vol_surfaces_core import VolatilitySurfaceStripper
+# 🟢 FIXED IMPORTS: Pure relative notation calling your exact sibling math files
+from .vol import VolatilityModelEngine
+from .vol_surfaces_core import VolatilitySurfaceStripper
 from config import GLOBAL_UNIVERSE
 
 def register_global_volatility_pipelines(app):
@@ -29,28 +29,33 @@ def register_global_volatility_pipelines(app):
         expiries = ["1M", "3M", "6M", "1Y", "2Y", "5Y"]
         skews = ["10D Put", "25D Put", "ATM", "25D Call", "10D Call"]
         
-        # Ingest your live non-parametric data grid snapshot directly from disk registries
-        file_path = "data/live_vol_surface.json"
+        try:
+            stripper_instance = VolatilitySurfaceStripper(file_path="data/g4_vol_surfaces.json")
+        except Exception:
+            stripper_instance = None
+
         live_data_map = {exp: [70.0]*5 for exp in expiries}
         
-        try:
-            with open(file_path, "r") as f:
-                records = json.load(f)
-            ccy_records = [r for r in records if r.get("currency") == selected_ccy]
+        for exp in expiries:
+            t_str = exp.replace("M", "").replace("Y", "")
+            t_factor = float(t_str) / 12.0 if "M" in exp else float(t_str)
             
-            for exp in expiries:
-                exp_rows = [r for r in ccy_records if r.get("expiry") == exp]
-                for sk_idx, sk in enumerate(skews):
-                    match = [r for r in exp_rows if r.get("skew_bucket") == sk]
-                    if match:
-                        live_data_map[exp][sk_idx] = float(match[0]["implied_normal_vol_bps"])
-        except Exception:
-            # Deterministic 8-currency backend fallback matrix shields if database encounters I/O locks
-            np.random.seed(hash(selected_ccy) % 111)
-            vol_multiplier = 1.25 if selected_ccy in ["ZAR", "NOK", "SEK"] else 1.0
-            base_vols = {"1M": 68.5, "3M": 70.2, "6M": 72.4, "1Y": 75.1, "2Y": 78.6, "5Y": 82.3}
-            skew_shifts = [14.0, 5.5, 0.0, 6.7, 16.1]
-            live_data_map = {exp: [round((base_vols[exp] + shift) * vol_multiplier, 1) for shift in skew_shifts] for exp in expiries}
+            for s_idx, sk in enumerate(skews):
+                if stripper_instance:
+                    swap_tenor_proxy = 10.0 if "10D" in sk else 5.0 if "25D" in sk else 2.0
+                    raw_extracted_vol = stripper_instance.get_clean_atm_volatility(
+                        currency=selected_ccy,
+                        target_date="2026-09-15",
+                        option_expiry=t_factor,
+                        swap_tenor=swap_tenor_proxy
+                    )
+                    live_data_map[exp][s_idx] = float(raw_extracted_vol * 100.0 if raw_extracted_vol <= 1.5 else raw_extracted_vol)
+                else:
+                    np.random.seed(hash(selected_ccy) % 111)
+                    vol_multiplier = 1.25 if selected_ccy in ["ZAR", "NOK", "SEK"] else 1.0
+                    base_vols = {"1M": 68.5, "3M": 70.2, "6M": 72.4, "1Y": 75.1, "2Y": 78.6, "5Y": 82.3}
+                    skew_shifts = [14.0, 5.5, 0.0, 6.7, 16.1]
+                    live_data_map[exp][s_idx] = (base_vols[exp] + skew_shifts[s_idx]) * vol_multiplier
 
         table_headers = html.Tr([
             html.Th("Expiry \ Skew", style={'color': '#ffffff', 'backgroundColor': '#1a202c', 'textAlign': 'left', 'fontWeight': 'bold', 'borderBottom': '2px solid #4a5568', 'minWidth': '140px'}),
@@ -70,7 +75,6 @@ def register_global_volatility_pipelines(app):
                 strike_offset = (s_idx - 2) * 0.25
                 target_strike = underlying_fwd + strike_offset
                 
-                # Ingest analytical solutions using your native VolatilityModelEngine classes from vol.py
                 metrics = VolatilityModelEngine.evaluate_swaption_leg(
                     fwd_rate=underlying_fwd * 100.0,
                     strike=target_strike * 100.0,
@@ -117,7 +121,6 @@ def register_global_volatility_pipelines(app):
             className="table-dark m-0 small border-secondary text-center font-monospace"
         )
 
-
     # =========================================================================
     # 🟢 PIPELINE 2: VECTORISED PORTFOLIO INTEREST RATE CAP & FLOOR CHAIN PRICER
     # =========================================================================
@@ -150,7 +153,6 @@ def register_global_volatility_pipelines(app):
             synthetic_fwd_rate_array = np.linspace(3.95, 4.35, len(payment_tenors)) + np.random.normal(0, 0.05)
             synthetic_df_array = [math.exp(-0.042 * t) for t in payment_tenors]
             
-            # Invokes your quantitative VolatilityModelEngine formulas natively across the caplet chain portfolio
             metrics = VolatilityModelEngine.evaluate_cap_floor(
                 fwd_rate_array=synthetic_fwd_rate_array,
                 strike=target_strike,
