@@ -1,13 +1,13 @@
-# layouts/volatility_callbacks.py - UNIFIED G4 & EM OPTIONS LIFECYCLE CALLBACK ENGINE
+# layouts/volatility_callbacks.py - UNIFIED 8-CURRENCY OPTIONS LIFECYCLE CALLBACK ENGINE
 import json
 import math
 import numpy as np
 from dash import html, Input, Output, State, ALL
 import dash_bootstrap_components as dbc
 
-# 🟢 FIXED IMPORTS: Pure relative notation calling your exact sibling math files
-from .vol import VolatilityModelEngine
-from .vol_surfaces_core import VolatilitySurfaceStripper
+# 🟢 ROOT DIRECTION SYNC: Points directly to your root-level quantitative math scripts
+from vol import VolatilityModelEngine
+from vol_surfaces_core import VolatilitySurfaceStripper
 from config import GLOBAL_UNIVERSE
 
 def register_global_volatility_pipelines(app):
@@ -58,7 +58,7 @@ def register_global_volatility_pipelines(app):
                     live_data_map[exp][s_idx] = (base_vols[exp] + skew_shifts[s_idx]) * vol_multiplier
 
         table_headers = html.Tr([
-            html.Th("Expiry \ Skew", style={'color': '#ffffff', 'backgroundColor': '#1a202c', 'textAlign': 'left', 'fontWeight': 'bold', 'borderBottom': '2px solid #4a5568', 'minWidth': '140px'}),
+            html.Th("Expiry / Skew", style={'color': '#ffffff', 'backgroundColor': '#1a202c', 'textAlign': 'left', 'fontWeight': 'bold', 'borderBottom': '2px solid #4a5568', 'minWidth': '140px'}),
             *[html.Th(sk, style={'color': '#ffffff', 'backgroundColor': '#1a202c', 'fontWeight': 'bold', 'borderBottom': '2px solid #4a5568'}) for sk in skews]
         ])
 

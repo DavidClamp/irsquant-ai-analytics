@@ -3,6 +3,8 @@ import json
 import math
 import numpy as np
 from dash import html, dcc, Input, Output, State, ALL
+from vol import VolatilityModelEngine
+from vol_surfaces_core import VolatilitySurfaceStripper
 import dash_bootstrap_components as dbc
 
 # INGEST MASTER MULTI-CURRENCY SPECIFICATIONS NATIVELY
@@ -101,7 +103,6 @@ def render_swaption_layout():
         ]
     )
 # Import your backend quantitative calculation classes natively from your math files
-from layouts.vol import VolatilityModelEngine
 
 def register_swaption_callbacks(app):
     @app.callback(
@@ -139,8 +140,10 @@ def register_swaption_callbacks(app):
             skew_shifts = [14.0, 5.5, 0.0, 6.7, 16.1]
             live_data_map = {exp: [round((base_vols[exp] + shift) * vol_multiplier, 1) for shift in skew_shifts] for exp in expiries}
 
+        # layouts/swaption_analytics.py - LINE 144 SYNTAX WARNING RECTIFICATION
         table_headers = html.Tr([
-            html.Th("Expiry \ Skew", style={'color': '#ffffff', 'backgroundColor': '#1a202c', 'textAlign': 'left', 'fontWeight': 'bold', 'borderBottom': '2px solid #4a5568', 'minWidth': '140px'}),
+            # 🟢 PRO-CLEAN UP: Using a standard forward slash removes the compiler escape sequence warning completely
+            html.Th("Expiry / Skew", style={'color': '#ffffff', 'backgroundColor': '#1a202c', 'textAlign': 'left', 'fontWeight': 'bold', 'borderBottom': '2px solid #4a5568', 'minWidth': '140px'}),
             *[html.Th(sk, style={'color': '#ffffff', 'backgroundColor': '#1a202c', 'fontWeight': 'bold', 'borderBottom': '2px solid #4a5568'}) for sk in skews]
         ])
 
