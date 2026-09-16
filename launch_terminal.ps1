@@ -7,18 +7,25 @@ Clear-Host
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = "Stop"
 
+# 🟢 GLOBAL ENVIRONMENT INJECTION: Forces Python to append the root folder directory path natively
+$env:PYTHONPATH = "."
+
 Write-Host "================================================================================" -ForegroundColor Green
 Write-Host "📊 INITIALIZING IRSQUANT NEXTGEN RUNTIME FRAMEWORK MODULES" -ForegroundColor Green
 Write-Host "================================================================================" -ForegroundColor Green
-Write-Host "📌 Node Execution Anchor Timeline: 2026-08-26" -ForegroundColor Cyan
+Write-Host "📌 Node Execution Anchor Timeline: 2026-09-16" -ForegroundColor Cyan
 
 # 1. Check for Standalone Python Virtual Workspace Environments
 if (Test-Path ".venv\Scripts\Activate.ps1") {
     Write-Host "`n[VENV] Spinning up dedicated python execution shell context..." -ForegroundColor Yellow
-    & .venv\Scripts\Activate.ps1
+    # 🟢 FIXED: Dot-sourcing forces the virtual environment to bind permanently to the master parent session
+    . .venv\Scripts\Activate.ps1
 } else {
     Write-Host "`n[WARNING] Local isolated venv paths not found. Running system binary tracks directly." -ForegroundColor Red
 }
+
+# Double-enforce pathing rules down inside the active terminal process pipeline
+$env:PYTHONPATH = "."
 
 # 2. Trigger Continuous Data Generation Matrices
 Write-Host "`n[DATA] Regenerating 100-day historical options grid universes..." -ForegroundColor Yellow
