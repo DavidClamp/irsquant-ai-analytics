@@ -54,7 +54,7 @@ try:
                     dbc.Col(md=8, children=[
                         html.H1("IRSQuant Analytics Terminal",
                                 className="text-success fw-bold m-0 font-monospace", style={'letterSpacing': '-0.5px'}),
-                        html.P("Standalone QuantLib C++ Asset Workstation | Proprietary RV Desk",
+                        html.P("Standalone QuantLib Asset Workstation | Proprietary IRS/IRO RV Desk",
                                className="text-muted small m-0")
                     ]),
                     dbc.Col(md=4, className="text-end d-flex justify-content-end gap-2", children=[

@@ -25,7 +25,7 @@ def render_swaption_layout():
                 className="mb-4 align-items-center",
                 children=[
                     dbc.Col(md=8, children=[
-                        html.H4("📊 Implied Volatility Surface & Greeks Desk", className="text-info fw-bold mb-1"),
+                        html.H4("Implied Volatility Surface & Greeks Desk", className="text-info fw-bold mb-1"),
                         html.P("Isolate premium distortions, calculate option Greeks, and track real-time Bachelier smile skews across 8 books.", className="text-muted small m-0")
                     ]),
                     
@@ -91,7 +91,7 @@ def render_swaption_layout():
                             className="p-4 shadow-sm",
                             children=[
                                 html.Div(
-                                    "📊 SWAPTION IMPLIED VOLATILITY MATRIX GRID (STRIKE DELTA SKEWS / DECAY HORIZONS)", 
+                                    "SWAPTION IMPLIED VOLATILITY MATRIX GRID (STRIKE DELTA SKEWS / DECAY HORIZONS)", 
                                     style={'color': '#ffffff', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '15px'}
                                 ),
                                 html.Div(id="vol-surface-table-slot")

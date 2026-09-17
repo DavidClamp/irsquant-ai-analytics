@@ -19,7 +19,7 @@ def render_cap_layout():
                 className="mb-4 align-items-center",
                 children=[
                     dbc.Col(md=8, children=[
-                        html.H4("🛡️ Interest Rate Cap & Floor Analytics Desk", className="text-info fw-bold mb-1"),
+                        html.H4(" Interest Rate Cap & Floor Analytics Desk", className="text-info fw-bold mb-1"),
                         html.P("Price long-dated linear options chains, evaluate premium cushions, and track aggregated portfolio delta vectors.", className="text-muted small m-0")
                     ]),
                     dbc.Col(md=4, className="text-end", children=[

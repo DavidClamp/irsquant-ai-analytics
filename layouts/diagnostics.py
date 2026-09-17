@@ -3,23 +3,21 @@ import json
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from dash import dcc, html, Input, Output, State, no_update
+from dash import dcc, html, Input, Output
 import dash_bootstrap_components as dbc
-from config import GLOBAL_UNIVERSE, BENCHMARK_TENORS
-
+from config import GLOBAL_UNIVERSE
 
 def render_diagnostics_layout():
     """
     Assembles the front-page primary risk control center with an optimized layout grid.
-    Places the vertical, consecutive 1Y->1Y forward rate histogram at the top.
+    Places the smooth, continuous glowing 1Y implied forward curve at the top window.
     """
     try:
-        # Load your lightweight live execution ledger file to grab the true file date dynamically
         with open("data/g4_curves_live.json", "r") as f:
             live_data = json.load(f)
-        current_date_str = live_data[0]["date"] if live_data else "2026-08-30"
+        current_date_str = live_data[0]["date"] if live_data else "2026-09-16"
     except Exception:
-        current_date_str = "2026-08-30"
+        current_date_str = "2026-09-16"
 
     return html.Div(
         children=[
@@ -30,16 +28,18 @@ def render_diagnostics_layout():
                     dbc.Col(md=6, children=[
                         html.H4("Real-Time Curve Diagnostics", className="text-success fw-bold m-0"),
                         html.P(
-                            f"Live Data As Of: {current_date_str} | Immediacy Monitoring & Live Pricing Validation", className="text-muted small m-0")
+                            f"Live Data As Of: {current_date_str} | Immediacy Monitoring & Live Pricing Validation", 
+                            className="text-muted small m-0"
+                        )
                     ]),
                     dbc.Col(md=4, children=[
-                        html.Label("Primary Analysis Currency:", className="text-muted small mb-1"),
+                        html.Label("Primary Analysis Currency:", className="text-white-50 small mb-1", style={'fontSize': '11px', 'fontFamily': 'monospace'}),
                         dcc.Dropdown(
                             id="diag-currency-selector",
                             options=[{"label": f"{ccy} Curve Book", "value": ccy} for ccy in GLOBAL_UNIVERSE],
                             value="USD",
-                            clearable=False,  # 🛡️ SAFETY GUARD: Blocks manual user deletion of active items
-                            className="text-dark fw-bold"
+                            clearable=False,
+                            style={'backgroundColor': '#0b0d12', 'color': '#000000'}
                         )
                     ]),
                     dbc.Col(md=2, className="text-end", children=[
@@ -48,7 +48,7 @@ def render_diagnostics_layout():
                 ]
             ),
 
-            # TOP ROW: INTRA-CURVE CONSECUTIVE 1Y 1Y FORWARDS VERTICAL HISTOGRAM
+            # TOP ROW: GLOWING CONTINUOUS 1Y IMPLIED FORWARD CURVE MATRIX
             dbc.Row(
                 className="mb-4",
                 children=[
@@ -59,10 +59,12 @@ def render_diagnostics_layout():
                                 style={'backgroundColor': '#0b0d12', 'border': '1px solid #1a1f2c', 'borderRadius': '6px'},
                                 className="p-4 shadow-sm",
                                 children=[
-                                    html.H5(id="diag-fwd-title-slot", className="text-white monospace mb-3",
-                                            style={'fontSize': '14px'}),
-                                    dcc.Graph(id="diag-fwd-histogram-graph",
-                                              style={'height': '320px'}, config={'displayModeBar': False})
+                                    html.H5(id="diag-fwd-title-slot", className="text-white monospace mb-3", style={'fontSize': '14px'}),
+                                    dcc.Graph(
+                                        id="diag-fwd-histogram-graph",
+                                        style={'height': '320px'}, 
+                                        config={'displayModeBar': False}
+                                    )
                                 ]
                             )
                         ]
@@ -70,7 +72,7 @@ def render_diagnostics_layout():
                 ]
             ),
 
-            # BOTTOM ROW: LIVE PAR SWAP CURVES GRAPH & ROLL SNAPSHOT
+            # BOTTOM ROW: LIVE PAR SWAP CURVES LINE GRAPH & DYNAMIC CARRY MATRICES
             dbc.Row(
                 className="g-4",
                 children=[
@@ -82,10 +84,12 @@ def render_diagnostics_layout():
                                 style={'backgroundColor': '#0b0d12', 'border': '1px solid #1a1f2c', 'borderRadius': '6px'},
                                 className="p-4 shadow-sm",
                                 children=[
-                                    html.H5("Live Benchmark IRS Par Swap Yield Curve",
-                                            className="text-white monospace mb-3", style={'fontSize': '14px'}),
-                                    dcc.Graph(id="diag-par-curve-graph",
-                                              style={'height': '320px'}, config={'displayModeBar': False})
+                                    html.H5("Live Benchmark IRS Par Swap Yield Curve", className="text-white monospace mb-3", style={'fontSize': '14px'}),
+                                    dcc.Graph(
+                                        id="diag-par-curve-graph",
+                                        style={'height': '320px'}, 
+                                        config={'displayModeBar': False}
+                                    )
                                 ]
                             )
                         ]
@@ -95,12 +99,10 @@ def render_diagnostics_layout():
                         md=4,
                         children=[
                             dbc.Card(
-                                style={'backgroundColor': '#0b0d12', 'border': '1px solid #1a1f2c',
-                                       'borderRadius': '6px', 'height': '100%'},
+                                style={'backgroundColor': '#0b0d12', 'border': '1px solid #1a1f2c', 'borderRadius': '6px', 'height': '100%'},
                                 className="p-4 shadow-sm",
                                 children=[
-                                    html.H5("Active 30D Curve Carry & Roll-Down",
-                                            className="text-white monospace mb-3", style={'fontSize': '14px'}),
+                                    html.H5("Active 30D Curve Carry & Roll-Down", className="text-white monospace mb-3", style={'fontSize': '14px'}),
                                     html.Div(id="diag-roll-snapshot-container")
                                 ]
                             )
@@ -110,9 +112,7 @@ def render_diagnostics_layout():
             )
         ]
     )
-
-# layouts/diagnostics.py - DYNAMIC MATRICES-CALCULATED CARRY INTEGRATION
-
+# layouts/diagnostics.py - PART 2: QUANT MATRIX MATHEMATICS & CALLOUT SWITCHBOARD
 
 def register_diagnostics_callbacks(app):
     """
@@ -138,7 +138,6 @@ def register_diagnostics_callbacks(app):
             if df_ccy.empty:
                 raise ValueError(f"No records found inside live file cluster for book: {selected_ccy}")
 
-            # Parse year numbers to execute precise chronological sorting
             df_ccy['year_num'] = df_ccy['tenor'].str.replace('Y', '').astype(int)
             df_sorted = df_ccy.sort_values('year_num')
 
@@ -168,20 +167,53 @@ def register_diagnostics_callbacks(app):
                     fwd_rates.append(round(fwd_calc * 100.0, 3))
                     fwd_categories.append(label)
 
-            # 3. GENERATE HISTOGRAM GRAPH
+            # =========================================================================
+            # 🟢 3. GENERATE IMPLIED FORWARD LINE & GLOWING AREA PROFILE
+            # =========================================================================
             title_text = f"{ccy_str} Implied Forward Rate Curve Term Structure Profile"
             fig_hist = go.Figure()
-            fig_hist.add_trace(go.Bar(
-                x=fwd_categories, y=fwd_rates,
-                marker=dict(color='#10b981', line=dict(color='#0b0d12', width=1)),
-                text=[f"{r:.3f}%" for r in fwd_rates], textposition='inside',
-                textfont=dict(family='monospace', size=11, color='#ffffff')
+            
+            fig_hist.add_trace(go.Scatter(
+                x=fwd_categories, 
+                y=fwd_rates,
+                mode='lines+markers+text',
+                line=dict(color='#00d2ff', width=3, shape='spline'),
+                fill='tozeroy',
+                fillcolor='rgba(0, 210, 255, 0.03)', 
+                marker=dict(size=6, color='#ffffff', line=dict(color='#00d2ff', width=2)),
+                text=[f"{r:.3f}%" for r in fwd_rates],
+                textposition='top center',
+                textfont=dict(family='monospace', size=10, color='#00d2ff'),
+                name='Implied Forward'
             ))
+            
             fig_hist.update_layout(
-                paper_bgcolor='#0b0d12', plot_bgcolor='#0b0d12',
-                xaxis=dict(gridcolor='#1a1f2c', tickfont=dict(color='#a0aec0')),
-                yaxis=dict(title="Implied Forward Rate Coupon (%)", gridcolor='#1a1f2c', tickfont=dict(color='#a0aec0')),
-                margin=dict(l=10, r=10, t=10, b=10)
+                paper_bgcolor='#0b0d12', 
+                plot_bgcolor='#0b0d12',
+                showlegend=False,
+                # 🟢 FIXED: Explicitly added X-Axis Title with monospace styling
+                xaxis=dict(
+                    title=dict(
+                        text="Consecutive Forward Tenor Intervals",
+                        font=dict(color='#a0aec0', family='monospace', size=11)
+                    ),
+                    gridcolor='#1a1f2c', 
+                    tickfont=dict(color='#a0aec0', family='monospace', size=11),
+                    linecolor='#2d3748'
+                ),
+                # Increased left margin to 65px and expanded the range max by 15% to stop first label clipping
+                yaxis=dict(
+                    title=dict(
+                        text="Implied Forward Rate Coupon (%)",
+                        font=dict(color='#a0aec0', family='monospace', size=11)
+                    ),
+                    gridcolor='#1a1f2c', 
+                    tickfont=dict(color='#a0aec0', family='monospace', size=11),
+                    linecolor='#2d3748',
+                    zeroline=False,
+                    range=[min(fwd_rates) * 0.90, max(fwd_rates) * 1.15]
+                ),
+                margin=dict(l=65, r=20, t=20, b=45)
             )
 
             # 4. GENERATE CONTINUOUS PAR SWAP LINE CHART
@@ -196,13 +228,32 @@ def register_diagnostics_callbacks(app):
             ))
             fig_line.update_layout(
                 paper_bgcolor='#0b0d12', plot_bgcolor='#0b0d12',
-                xaxis=dict(gridcolor='#1a1f2c', tickfont=dict(color='#a0aec0')),
-                yaxis=dict(title="IRS Par Swap Coupon Yield (%)", gridcolor='#1a1f2c', tickfont=dict(color='#a0aec0')),
-                margin=dict(l=10, r=10, t=10, b=10)
+                showlegend=False,
+                # Added X-Axis Title with monospace styling
+                xaxis=dict(
+                    title=dict(
+                        text="Benchmark Swap Maturity Pillars",
+                        font=dict(color='#a0aec0', family='monospace', size=11)
+                    ),
+                    gridcolor='#1a1f2c', 
+                    tickfont=dict(color='#a0aec0', family='monospace', size=11),
+                    linecolor='#2d3748'
+                ),
+                yaxis=dict(
+                    title=dict(
+                        text="IRS Par Swap Coupon Yield (%)",
+                        font=dict(color='#a0aec0', family='monospace', size=11)
+                    ),
+                    gridcolor='#1a1f2c', 
+                    tickfont=dict(color='#a0aec0', family='monospace', size=11),
+                    linecolor='#2d3748',
+                    range=[min(df_sorted['rate']) * 0.90, max(df_sorted['rate']) * 1.15]
+                ),
+                margin=dict(l=65, r=20, t=20, b=45)
             )
 
-                        # =========================================================================
-            # 🟢 5. CALCULATE TRUE INTERBANK CURVE CARRY & ROLL-DOWN SLOPES (FIXED)
+            # =========================================================================
+            # 🟢 5. CALCULATE TRUE INTERBANK CURVE CARRY & ROLL-DOWN SLOPES
             # =========================================================================
             currency_modifier = 0.55 if ccy_str == "EUR" else 0.35 if ccy_str == "JPY" else 1.00
             
@@ -224,7 +275,6 @@ def register_diagnostics_callbacks(app):
                 raw_slope_return = (rate_high - rate_low) * currency_modifier
                 monthly_carry_bp = (raw_slope_return / 12.0) * 100.0
                 
-                # 🟢 FIXED: Removed custom sign_str variable to eradicate double-plus sign bugs completely
                 text_color_class = "text-success" if monthly_carry_bp >= 0 else "text-danger"
 
                 snapshot_rows.append(
@@ -232,14 +282,13 @@ def register_diagnostics_callbacks(app):
                         className="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary font-monospace text-white",
                         children=[
                             html.Span(f"{pillar} Benchmark Node", className="text-muted"),
-                            # Relying completely on :+.1f safely renders a single high-contrast sign element
-                            html.Strong(f"{monthly_carry_bp:+.1f} bps/mo", className=text_color_class)
+                            # 🟢 FIXED: Changed float token specifier from :+.1f to :+.2f for exact 2 decimal points
+                            html.Strong(f"{monthly_carry_bp:+.2f} bps/mo", className=text_color_class)
                         ]
                     )
                 )
 
             return title_text, fig_hist, fig_line, snapshot_rows
-
 
         except Exception as e:
             blank_fig = go.Figure().update_layout(paper_bgcolor='#0b0d12', plot_bgcolor='#0b0d12')
