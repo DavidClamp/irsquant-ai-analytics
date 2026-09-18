@@ -1,4 +1,5 @@
 # layouts/__init__.py - PACKAGE INTERFACE EXPORTS
+from .home_portal import render_home_portal_layout
 from .diagnostics import render_diagnostics_layout, register_diagnostics_callbacks
 from .scanner import render_scanner_layout, register_scanner_callbacks
 from .fly_sizer import render_fly_layout, register_fly_callbacks
@@ -10,6 +11,7 @@ from .deep_analysis import render_deep_analysis_layout, register_deep_analysis_c
 from .backtester import render_backtester_layout, register_backtester_callbacks
 
 __all__ = [
+    'render_home_portal_layout',
     'render_diagnostics_layout',
     'register_diagnostics_callbacks',
     'render_scanner_layout',

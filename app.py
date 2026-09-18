@@ -1,158 +1,152 @@
-# app.py - CENTRAL TRADING TERMINAL DECK INTERFACE ORCHESTRATOR (PART 1)
-import sys
-import os
+# app.py - PART 1: MAIN CONFIGURATION, PACKAGES & USER INTERFACE LAYOUT
+import dash
+from dash import dcc, html, Input, Output
+import dash_bootstrap_components as dbc
 
-print("🔄 STAGE 1: Validating Master Workspace System Anchors...")
-try:
-    import dash
-    import dash_bootstrap_components as dbc
-    from dash import html, dcc, Input, Output, State, no_update
-    import pandas as pd
-    import numpy as np
-    print("✔ STAGE 1: Core visual UI framework packages successfully mapped.")
-except Exception as e:
-    print(f"❌ CRITICAL STAGE 1 FAILURE: Dependency tracking drop: {str(e)}")
-    sys.exit(1)
+# 🟢 INSTITUTIONAL IMPORTS: Ingesting your modular multi-currency presentation layouts cleanly
+from layouts import (
+    render_home_portal_layout,
+    render_diagnostics_layout,
+    render_deep_analysis_layout,
+    render_scanner_layout,
+    render_fly_layout,
+    render_basis_layout,
+    render_cap_layout,
+    render_swaption_layout,
+    render_backtester_layout,
+    register_diagnostics_callbacks,
+    register_scanner_callbacks,
+    register_fly_callbacks,
+    register_basis_callbacks,
+    register_deep_analysis_callbacks,
+    register_backtester_callbacks,
+    register_global_volatility_pipelines
+)
 
-print("\n🔄 STAGE 2: Mapping Decoupled Presentation Views...")
-try:
-    from layouts.diagnostics import render_diagnostics_layout, register_diagnostics_callbacks
-    from layouts.scanner import render_scanner_layout, register_scanner_callbacks
-    from layouts.fly_sizer import render_fly_layout, register_fly_callbacks
-    from layouts.execution import render_basis_layout, register_basis_callbacks
-    from layouts.swaption_analytics import render_swaption_layout
-    from layouts.cap_analytics import render_cap_layout
-    from layouts.volatility_callbacks import register_global_volatility_pipelines
-    from layouts.backtester import render_backtester_layout, register_backtester_callbacks
-    from layouts.deep_analysis import render_deep_analysis_layout, register_deep_analysis_callbacks
-    from utils.report_gen import DailyRiskReportGenerator
-    print("✔ STAGE 2: All 7 layout view panel modules successfully integrated.")
-except Exception as e:
-    print(f"❌ CRITICAL STAGE 2 FAILURE: Layout mapping loop dropped: {str(e)}")
-    print("💡 Fix Checklist: Check that you saved your files and layouts/__init__.py has matching references.")
-    sys.exit(1)
+# Initialis core Dash workspace application shell container node natively
+app = dash.Dash(
+    __name__,
+    external_stylesheets=[dbc.themes.CYBORG],
+    suppress_callback_exceptions=True
+)
+server = app.server
 
-print("\n🔄 STAGE 3: Launching Front-Office Core Web Server Node...")
-try:
-    app = dash.Dash(
-        __name__,
-        external_stylesheets=[dbc.themes.CYBORG],
-        # 🛡️ SUPPRESS EXCEPTIONS FORCED: Blocks cross-tab nonexistent ID validations on initial page load
-        suppress_callback_exceptions=True
-    )
-    app.title = "IRSQuant NextGen Terminal"
-    server = app.server
-    # 🏛️ MASTER HUD DESIGN: Structures your front-office presentation panels
-    app.layout = dbc.Container(
-        fluid=True,
-        className="p-3 bg-dark min-vh-100 text-white font-monospace",
-        children=[
-            # GLOBAL PLATFORM SUB-HEADER NAV BAR
-            dbc.Row(
-                className="bg-black border-bottom border-secondary mb-4 p-3 align-items-center rounded shadow-sm",
-                children=[
-                    dbc.Col(md=8, children=[
-                        html.H1("IRSQuant Analytics Terminal",
-                                className="text-success fw-bold m-0 font-monospace", style={'letterSpacing': '-0.5px'}),
-                        html.P("Standalone QuantLib Asset Workstation | Proprietary IRS/IRO RV Desk",
-                               className="text-muted small m-0")
-                    ]),
-                    dbc.Col(md=4, className="text-end d-flex justify-content-end gap-2", children=[
-                        dbc.Button("Trigger EOD Report", id="eod-report-btn", color="warning",
-                                   size="sm", className="fw-bold px-3 shadow"),
-                        html.Span("SYSTEM ENGINE STATUS: ACTIVE",
-                                  className="badge bg-success font-monospace p-2 shadow-sm d-flex align-items-center")
-                    ])
-                ]
-            ),
-
-            # CORE NAVIGATION WORKSPACE NAVIGATOR SWITCHBOARD
-            dcc.Tabs(
-                id="master-workspace-tabs",
-                value="tab-diagnostics",
-                className="mb-4 custom-tabs-container border-0",
-                children=[
-                    dcc.Tab(label="Curve Diagnostics", value="tab-diagnostics", className="custom-tab text-white bg-dark border-0",
-                            selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
-                    dcc.Tab(label="Curve Rich/Cheap", value="tab-deep-matrix", className="custom-tab text-white bg-dark border-0",
-                            selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
-                    dcc.Tab(label="RV Butterfly Scanner", value="tab-scanner", className="custom-tab text-white bg-dark border-0",
-                            selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
-                    dcc.Tab(label="3-Leg Fly Sizer", value="tab-fly-sizer", className="custom-tab text-white bg-dark border-0",
-                            selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
-                    dcc.Tab(label="2-Leg Curve Sizer", value="tab-basis-desk", className="custom-tab text-white bg-dark border-0",
-                            selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
-                    dcc.Tab(label="Caplet Stripping", value="tab-caplet-stripping", className="custom-tab text-white bg-dark border-0",
-                            selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
-                    dcc.Tab(label="Swaption Vol", value="tab-option-vol", className="custom-tab text-white bg-dark border-0",
-                            selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
-                    dcc.Tab(label="Historical Backtest", value="tab-backtest", className="custom-tab text-white bg-dark border-0",
-                            selected_className="custom-tab--selected bg-black border-bottom border-success text-success fw-bold"),
-                ]
-            ),
-
-            # MASTER CONTENT PRESENTATION CORRIDOR
-            html.Div(id="master-workspace-content-slot"),
-
-            # HIDDEN NOTIFICATION REPORT LAYER
-            html.Div(id="eod-report-status-hidden", style={"display": "none"})
-        ]
-    )
-    # 🛠️ WORKSPACE SWITCHBOARD ROUTING LOGIC
-
-    @app.callback(
-        Output("master-workspace-content-slot", "children"),
-        Input("master-workspace-tabs", "value")
-    )
-    def render_workspace_view_segment(active_tab):
-        if active_tab == "tab-diagnostics":
-            return render_diagnostics_layout()
-        elif active_tab == "tab-deep-matrix":
-            return render_deep_analysis_layout()
-        elif active_tab == "tab-scanner":
-            return render_scanner_layout()
-        elif active_tab == "tab-fly-sizer":
-            return render_fly_layout()
-        elif active_tab == "tab-basis-desk":
-            return render_basis_layout()
-        elif active_tab == "tab-caplet-stripping":
-            return render_cap_layout()
-        elif active_tab == "tab-option-vol":
-            return render_swaption_layout()
-        elif active_tab == "tab-backtest":
-            return render_backtester_layout()
+# =========================================================================
+# 🏢 MASTER INTERFACE NAVIGATION BAR & LAYOUT STRUCTURE
+# =========================================================================
+app.layout = dbc.Container(
+    fluid=True,
+    style={'backgroundColor': '#07080a', 'minHeight': '100vh', 'color': '#ffffff', 'paddingTop': '15px'},
+    children=[
+        # Master Navigation Menu Tabs Header Wrapper
+        dcc.Tabs(
+            id="master-workspace-tabs",
+            value="tab-home",  
+            className="custom-tabs-container mb-4",
+            children=[
                 
-        return html.Div("⚠️ Unknown Workspace View Segment Requested.", className="text-warning p-4")
+                dcc.Tab(
+                    label="Home", 
+                    value="tab-home",
+                    className="custom-tab-item",
+                    selected_className="custom-tab-item--selected"
+                ),
+                dcc.Tab(
+                    label="Curve Diagnostics", 
+                    value="tab-diagnostics",
+                    className="custom-tab-item",
+                    selected_className="custom-tab-item--selected"
+                ),
+                dcc.Tab(
+                    label="Swaption Vol Surface", 
+                    value="tab-option-vol",
+                    className="custom-tab-item",
+                    selected_className="custom-tab-item--selected"
+                ),
+                dcc.Tab(
+                    label="Caplet Stripping", 
+                    value="tab-caplet-stripping",
+                    className="custom-tab-item",
+                    selected_className="custom-tab-item--selected"
+                ),
+                dcc.Tab(
+                    label="RV Fly Sizer", 
+                    value="tab-fly-sizer",
+                    className="custom-tab-item",
+                    selected_className="custom-tab-item--selected"
+                ),
+                dcc.Tab(
+                    label="Cross-Tenor Matrix", 
+                    value="tab-deep-matrix",
+                    className="custom-tab-item",
+                    selected_className="custom-tab-item--selected"
+                ),
+                dcc.Tab(
+                    label="RV Basis Scanner", 
+                    value="tab-scanner",
+                    className="custom-tab-item",
+                    selected_className="custom-tab-item--selected"
+                ),
+                dcc.Tab(
+                    label="NLP Backtester", 
+                    value="tab-backtest",
+                    className="custom-tab-item",
+                    selected_className="custom-tab-item--selected"
+                )
+            ]
+        ),
+        
+        # THE ACTIVE VIEW RENDERING CANVAS SLOT
+        html.Div(id="master-workspace-content-slot")
+    ]
+)
+# app.py - PART 2: CENTRAL ROUTER CALLBACKS & MODERN SERVER BOOT (FIXED)
 
-    @app.callback(
-        Output("eod-report-status-hidden", "children"),
-        Input("eod-report-btn", "n_clicks"),
-        prevent_initial_call=True
-    )
-    def trigger_eod_risk_snapshot_export(n_clicks):
-        if n_clicks:
-            try:
-                generator = DailyRiskReportGenerator()
-                generator.export_terminal_snapshot_to_disk()
-            except Exception:
-                pass
-        return no_update
+# =========================================================================
+# 🔄 UNIFIED WORKSPACE LAYOUT SWITCHBOARD ROUTER CALLBACK
+# =========================================================================
+@app.callback(
+    Output("master-workspace-content-slot", "children"),
+    Input("master-workspace-tabs", "value")
+)
+def render_workspace_view_segment(active_tab):
+    """
+    Core switchboard callback that dynamically updates the rendering layout canvas
+    based on the current active tab selection parameter token.
+    """
+    if active_tab == "tab-home" or active_tab is None:
+        return render_home_portal_layout()
+    elif active_tab == "tab-diagnostics":
+        return render_diagnostics_layout()
+    elif active_tab == "tab-deep-matrix":
+        return render_deep_analysis_layout()
+    elif active_tab == "tab-scanner":
+        return render_scanner_layout()
+    elif active_tab == "tab-fly-sizer":
+        return render_fly_layout()
+    elif active_tab == "tab-basis-desk":
+        return render_basis_layout()
+    elif active_tab == "tab-caplet-stripping":
+        return render_cap_layout()
+    elif active_tab == "tab-option-vol":
+        return render_swaption_layout()
+    elif active_tab == "tab-backtest":
+        return render_backtester_layout()
+            
+    return html.Div("⚠️ Unknown Workspace View Segment Requested.", className="text-warning p-4")
 
-    # 🛠️ REGISTER CENTRAL PERFORMANCE ROUTINES PIPELINES
-    register_diagnostics_callbacks(app)
-    register_scanner_callbacks(app)
-    register_fly_callbacks(app)
-    register_basis_callbacks(app)
-    register_global_volatility_pipelines(app)
-    register_backtester_callbacks(app)
-    register_deep_analysis_callbacks(app)
 
-    print("✔ STAGE 3: Web Server Node initialization completed successfully.")
-
-except Exception as main_err:
-    print(f"❌ CRITICAL STAGE 3 FAILURE: Web Node boot process halted: {str(main_err)}")
-    sys.exit(1)
+# =========================================================================
+# ⚙️ ARMED PORTFOLIO BACKGROUND CALLBACK SYSTEM UTILITIES
+# =========================================================================
+# Explicitly initialise active trading desk threads only.
+register_diagnostics_callbacks(app)
+register_scanner_callbacks(app)
+register_fly_callbacks(app)
+register_deep_analysis_callbacks(app)
+register_backtester_callbacks(app)
+register_global_volatility_pipelines(app) # Unified swaption and caplet options channels
 
 if __name__ == "__main__":
-    # 🟢 FIXED: Swapped out obsolete 'run_server' for the modern 'run' method call
+    # 🟢 FIXED: Swapped out app.run_server(debug=True) for modern app.run(debug=True) to clear obsolete blocks
     app.run(debug=True, port=8050)
