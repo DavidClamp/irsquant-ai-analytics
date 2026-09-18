@@ -51,7 +51,7 @@ def render_home_portal_layout():
                                             className="p-3 border border-secondary rounded",
                                             style={'backgroundColor': '#07080a'},
                                             children=[
-                                                html.Span("Advanced EM Cross-Currency Swap (CCS) Pricing Engine: ", className="text-muted small monospace"),
+                                                html.Span("Under review: ", className="text-muted small monospace"),
                                                 html.Strong("To be completed", className="text-warning font-monospace", style={'fontSize': '12px'})
                                             ]
                                         )
