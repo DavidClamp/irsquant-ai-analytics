@@ -67,3 +67,23 @@ div[id*="filter"] {
     color: #ffffff !important;
     font-family: monospace !important;
 }
+
+/* Hard-overrides any implicit component colors inside your layout choice grids */
+.dash-bootstrap div,
+.dash-bootstrap label,
+.form-check,
+.form-check-inline,
+#cap-floor-structure-toggle label,
+#cap-floor-structure-toggle div,
+#cap-floor-structure-toggle span {
+    color: #ffffff !important;
+    font-family: monospace !important;
+    font-size: 12px !important;
+    opacity: 0.95 !important;
+}
+
+/* Increases visual spacing padding next to the mini chart icons for optimal readability */
+input[type="radio"] {
+    margin-right: 6px !important;
+    cursor: pointer !important;
+}

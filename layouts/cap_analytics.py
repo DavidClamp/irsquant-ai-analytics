@@ -49,15 +49,15 @@ def render_cap_layout():
                             style={'backgroundColor': '#0b0d12', 'border': '1px solid #1a1f2c', 'borderRadius': '6px'},
                             className="p-3 shadow-sm",
                             children=[
-                                html.Div("⚙️ DESK STRIKE SELECTOR & STRUCTURE SWITCHES", style={'color': '#00d2ff', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '12px'}),
+                                html.Div("DESK STRIKE SELECTOR & STRUCTURE SWITCHES", style={'color': '#00d2ff', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '12px'}),
                                 dbc.Row([
                                     dbc.Col(md=4, children=[
                                         html.Label("Structure Type Selection:", className="text-white-50 small monospace d-block mb-1"),
                                         dcc.RadioItems(
                                             id="cap-floor-structure-toggle",
                                             options=[
-                                                {"label": " 📈 Cap (Protect Payer/Short Leg)", "value": "CALL"},
-                                                {"label": " 📉 Floor (Protect Receiver/Long Leg)", "value": "PUT"}
+                                                {"label": " Cap (Protect Payer/Short Leg)", "value": "CALL"},
+                                                {"label": " Floor (Protect Receiver/Long Leg)", "value": "PUT"}
                                             ],
                                             value="CALL",
                                             inputStyle={"marginRight": "8px", "marginLeft": "15px"},

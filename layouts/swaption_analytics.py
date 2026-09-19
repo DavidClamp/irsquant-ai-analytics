@@ -16,7 +16,7 @@ def render_swaption_layout():
     allowing cross-sectional 8-currency swaption volatility monitoring.
     """
     currency_dropdown_options = [
-        {"label": f"{ccy} Vol Universe", "value": ccy} for ccy in GLOBAL_UNIVERSE
+        {"label": f"{ccy} Swaptions Vol", "value": ccy} for ccy in GLOBAL_UNIVERSE
     ]
 
     return html.Div(
@@ -59,7 +59,7 @@ def render_swaption_layout():
                             style={'backgroundColor': '#0b0d12', 'border': '1px solid #1a1f2c', 'borderRadius': '6px'},
                             className="p-3 shadow-sm",
                             children=[
-                                html.Div("⚙️ SURFACE PARAMETER STRESS MODELLER", style={'color': '#00d2ff', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '12px'}),
+                                html.Div("SURFACE PARAMETER STRESS MODELLER", style={'color': '#00d2ff', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '12px'}),
                                 dbc.Row([
                                     dbc.Col(md=4, children=[
                                         html.Label("Parallel Volatility Shift (bps):", className="text-white-50 small monospace d-block mb-1"),

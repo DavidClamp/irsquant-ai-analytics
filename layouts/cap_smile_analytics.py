@@ -48,7 +48,7 @@ def render_cap_smile_layout():
                             style={'backgroundColor': '#0b0d12', 'border': '1px solid #1a1f2c', 'borderRadius': '6px'},
                             className="p-3 shadow-sm",
                             children=[
-                                html.Div("⚙️ CAPLET STRIPPING VOLATILITY STRESS", style={'color': '#ffb300', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '12px'}),
+                                html.Div("CAPLET STRIPPING VOLATILITY STRESS", style={'color': '#ffb300', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '12px'}),
                                 dbc.Row([
                                     dbc.Col(md=6, children=[
                                         html.Label("Parallel Volatility Shift (v):", className="text-white-50 small monospace d-block mb-1"),
@@ -83,8 +83,8 @@ def render_cap_smile_layout():
                             style={'backgroundColor': '#0b0d12', 'border': '1px solid #1a1f2c', 'borderRadius': '6px'},
                             className="p-4 shadow-sm",
                             children=[
-                                html.Div("📈 STRIPPED PIECEWISE CAPLET VOLATILITY SMILE (ABSOLUTE STRIKES)", style={'color': '#ffffff', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '15px'}),
-                                # 🟢 FIXED: Corrected 'displayModeApp' configuration token to 'displayModeBar' to eliminate the prop type error
+                                html.Div("STRIPPED PIECEWISE CAPLET VOLATILITY SMILE (ABSOLUTE STRIKES)", style={'color': '#ffffff', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '15px'}),
+                                # Corrected 'displayModeApp' configuration token to 'displayModeBar' to eliminate the prop type error
                                 dcc.Graph(id="standalone-cap-smile-plot", style={'height': '380px'}, config={'displayModeBar': False})
                             ]
                         )

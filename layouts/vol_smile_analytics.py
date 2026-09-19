@@ -49,7 +49,7 @@ def render_vol_smile_layout():
                             style={'backgroundColor': '#0b0d12', 'border': '1px solid #1a1f2c', 'borderRadius': '6px'},
                             className="p-3 shadow-sm",
                             children=[
-                                html.Div("⚙️ SMILE PARAMETER SHIFT MODEL", style={'color': '#00d2ff', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '12px'}),
+                                html.Div("SMILE PARAMETER SHIFT MODEL", style={'color': '#00d2ff', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '12px'}),
                                 dbc.Row([
                                     dbc.Col(md=6, children=[
                                         html.Label("Parallel Volatility Stress Shift (bps):", className="text-white-50 small monospace d-block mb-1"),
