@@ -58,7 +58,7 @@ def render_backtester_layout():
                             style={'backgroundColor': '#0b0d12', 'border': '1px solid #1a1f2c', 'borderRadius': '6px'},
                             className="p-3 shadow-sm",
                             children=[
-                                html.Div("⚙️ EXECUTION VECTOR OVERLAY & CURRENT PAR RATES REFERENCE", style={'color': '#00d2ff', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '12px'}),
+                                html.Div("EXECUTION VECTOR OVERLAY & CURRENT PAR RATES REFERENCE", style={'color': '#00d2ff', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '12px'}),
                                 dbc.Row([
                                     dbc.Col(md=12, className="d-flex flex-wrap gap-3 align-items-end", children=[
                                         html.Div(
@@ -84,7 +84,7 @@ def render_backtester_layout():
                                             ]
                                         ) for t in BENCHMARK_TENORS
                                     ] + [
-                                        dbc.Button("⚡ Run Historical Simulation", id="trigger-standalone-backtest-btn", color="info", className="fw-bold monospace btn-sm ms-auto align-self-end", style={'fontSize': '12px', 'height': '38px', 'minWidth': '180px'})
+                                        dbc.Button("Run Historical Simulation", id="trigger-standalone-backtest-btn", color="info", className="fw-bold monospace btn-sm ms-auto align-self-end", style={'fontSize': '12px', 'height': '38px', 'minWidth': '180px'})
                                     ])
                                 ])
                             ]
