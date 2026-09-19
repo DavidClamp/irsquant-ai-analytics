@@ -1,11 +1,10 @@
-# app.py - PART 1: MAIN CONFIGURATION, PACKAGES & USER INTERFACE LAYOUT
+# app.py - PART 1: MAIN CONFIGURATION & PREMIUM DECOUPLED INFRASTRUCTURE LAYOUT
 import dash
 from dash import dcc, html, Input, Output
 import dash_bootstrap_components as dbc
 from flask_compress import Compress
 
-# 🟢 INSTITUTIONAL IMPORTS: Ingesting your modular multi-currency presentation layouts cleanly
-
+# INSTITUTIONAL IMPORTS: Ingesting your modular multi-currency presentation layouts cleanly
 from layouts import (
     render_home_portal_layout,
     render_diagnostics_layout,
@@ -27,106 +26,52 @@ from layouts import (
     register_global_volatility_pipelines,
     register_vol_smile_callbacks,
     register_cap_smile_callbacks
-) 
+)
 
-# Initialis core Dash workspace application shell container node natively
-
+# Initialize your core Dash application shell container node natively
 app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.CYBORG],
     suppress_callback_exceptions=True,
-    # Inject explicit institutional search indexing metadata tags natively
     meta_tags=[
         {"name": "viewport", "content": "width=device-width, initial-scale=1"},
         {"name": "description", "content": "IRSQuant NextGen Analytics Terminal - Institutional Multi-Currency Interest Rate Derivatives Pricing Desk."}
     ]
 )
 server = app.server
-
 Compress(server)
 
-
 # =========================================================================
-# 🏢 MASTER INTERFACE NAVIGATION BAR & LAYOUT STRUCTURE
+# 🏢 MASTER INTERFACE FIXED-INCOME NAVIGATION BAR
 # =========================================================================
 app.layout = dbc.Container(
     fluid=True,
-    style={'backgroundColor': '#07080a', 'minHeight': '100vh', 'color': '#ffffff', 'paddingTop': '15px'},
+    style={'backgroundColor': '#07080a', 'minHeight': '100vh', 'color': '#ffffff', 'paddingLeft': '20px', 'paddingRight': '20px', 'paddingTop': '15px'},
     children=[
-        # Master Navigation Menu Tabs Header Wrapper
+        # Master Navigation Menu Tabs Header Wrapper (ALL CODES DECOUPLED TO assets/ CARDS)
         dcc.Tabs(
             id="master-workspace-tabs",
             value="tab-home",  
-            className="custom-tabs-container mb-4",
+            className="custom-tabs-container",
             children=[
-                
-                dcc.Tab(
-                    label="Home", 
-                    value="tab-home",
-                    className="custom-tab-item",
-                    selected_className="custom-tab-item--selected"
-                ),
-                dcc.Tab(
-                    label="Curve Diagnostics", 
-                    value="tab-diagnostics",
-                    className="custom-tab-item",
-                    selected_className="custom-tab-item--selected"
-                ),
-                dcc.Tab(
-                    label="Swaption Vol Surface", 
-                    value="tab-option-vol",
-                    className="custom-tab-item",
-                    selected_className="custom-tab-item--selected"
-                ),
-                dcc.Tab(
-                    label="Caplet Stripping", 
-                    value="tab-caplet-stripping",
-                    className="custom-tab-item",
-                    selected_className="custom-tab-item--selected"
-                ),
-                dcc.Tab(
-                    label="Cap Smile", 
-                    value="tab-cap-smile",
-                    className="custom-tab-item",
-                    selected_className="custom-tab-item--selected"
-                ),
-                dcc.Tab(
-                    label="Vol Smile", 
-                    value="tab-vol-smile",
-                    className="custom-tab-item",
-                    selected_className="custom-tab-item--selected"
-                ),
-                dcc.Tab(
-                    label="RV Fly Sizer", 
-                    value="tab-fly-sizer",
-                    className="custom-tab-item",
-                    selected_className="custom-tab-item--selected"
-                ),
-                dcc.Tab(
-                    label="Cross-Tenor Matrix", 
-                    value="tab-deep-matrix",
-                    className="custom-tab-item",
-                    selected_className="custom-tab-item--selected"
-                ),
-                dcc.Tab(
-                    label="RV Basis Scanner", 
-                    value="tab-scanner",
-                    className="custom-tab-item",
-                    selected_className="custom-tab-item--selected"
-                ),
-                dcc.Tab(
-                    label="NLP Backtester", 
-                    value="tab-backtest",
-                    className="custom-tab-item",
-                    selected_className="custom-tab-item--selected"
-                )
+                dcc.Tab(label="Home\nTerminal Gateway", value="tab-home", className="custom-tab-item", selected_className="custom-tab-selected tab-home-sel"),
+                dcc.Tab(label="Curve\nDiagnostics & Carry", value="tab-diagnostics", className="custom-tab-item", selected_className="custom-tab-selected tab-diag-sel"),
+                dcc.Tab(label="Swaption\n3D Vol Matrix", value="tab-option-vol", className="custom-tab-item", selected_className="custom-tab-selected tab-vol-sel"),
+                dcc.Tab(label="Vol Smile\nSwaption Skews", value="tab-vol-smile", className="custom-tab-item", selected_className="custom-tab-selected tab-vsm-sel"),
+                dcc.Tab(label="Caplet\nPortfolio Pricing", value="tab-caplet-stripping", className="custom-tab-item", selected_className="custom-tab-selected tab-cap-sel"),
+                dcc.Tab(label="Cap Smile\nCaplet Strikes", value="tab-cap-smile", className="custom-tab-item", selected_className="custom-tab-selected tab-csm-sel"),
+                dcc.Tab(label="RV Fly\n3-Leg Sizer", value="tab-fly-sizer", className="custom-tab-item", selected_className="custom-tab-selected tab-fly-sel"),
+                dcc.Tab(label="Cross-Tenor\nHalf-Life Matrix", value="tab-deep-matrix", className="custom-tab-item", selected_className="custom-tab-selected tab-mtx-sel"),
+                dcc.Tab(label="RV Basis\nMarket Scanner", value="tab-scanner", className="custom-tab-item", selected_className="custom-tab-selected tab-scn-sel"),
+                dcc.Tab(label="NLP\nWeight Backtester", value="tab-backtest", className="custom-tab-item", selected_className="custom-tab-selected tab-nlp-sel")
             ]
         ),
         
         # THE ACTIVE VIEW RENDERING CANVAS SLOT
-        html.Div(id="master-workspace-content-slot")
+        html.Div(id="master-workspace-content-slot", style={'paddingTop': '25px'})
     ]
 )
+
 
 # app.py - PART 2: CENTRAL ROUTER CALLBACKS & MODERN SERVER BOOT
 
