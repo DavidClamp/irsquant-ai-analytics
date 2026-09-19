@@ -2,6 +2,7 @@
 import dash
 from dash import dcc, html, Input, Output
 import dash_bootstrap_components as dbc
+from flask_compress import Compress
 
 # 🟢 INSTITUTIONAL IMPORTS: Ingesting your modular multi-currency presentation layouts cleanly
 
@@ -29,12 +30,21 @@ from layouts import (
 ) 
 
 # Initialis core Dash workspace application shell container node natively
+
 app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.CYBORG],
-    suppress_callback_exceptions=True
+    suppress_callback_exceptions=True,
+    # Inject explicit institutional search indexing metadata tags natively
+    meta_tags=[
+        {"name": "viewport", "content": "width=device-width, initial-scale=1"},
+        {"name": "description", "content": "IRSQuant NextGen Analytics Terminal - Institutional Multi-Currency Interest Rate Derivatives Pricing Desk."}
+    ]
 )
 server = app.server
+
+Compress(server)
+
 
 # =========================================================================
 # 🏢 MASTER INTERFACE NAVIGATION BAR & LAYOUT STRUCTURE
