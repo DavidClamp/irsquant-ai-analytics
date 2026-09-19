@@ -39,7 +39,13 @@ def render_home_portal_layout():
                                     "quantitative engineering infrastructure. Use the master header navigation menu above "
                                     "to monitor non-linear option risk horizons, map cross-tenor basis skews, and isolate "
                                     "structural relative-value carry profiles across G4 and Emerging Market books.",
-                                    className="text-light font-monospace small mb-4", style={'lineHeight': '1.6', 'opacity': '0.9'}
+                                    style={
+                                        'color': '#ffffff', 
+                                        'fontSize': '12px', 
+                                        'fontFamily': 'monospace', 
+                                        'lineHeight': '1.7', 
+                                        'marginBottom': '20px'
+                                    }
                                 ),
 
                                 # PIPELINE ROADMAP BLOCK
