@@ -2,7 +2,7 @@
 
 /* Master Navigation Header Grid Constraints */
 .custom-tabs-container {
-    /* 🟢 FIXED: Expanded height to 60px to provide full vertical clearance for multi-line descriptive text */
+    /* Fixed: Expanded height to 60px to provide full vertical clearance for multi-line descriptive text */
     height: 60px !important;
     border-bottom: 1px solid #2d3748 !important;
     display: flex !important;
@@ -22,7 +22,7 @@
     flex: 1 !important;
     text-align: center !important;
     white-space: pre-line !important;
-    line-height: 1.4 !important; /* 🟢 FIXED: Standardised line height prevents bottom text clipping */
+    line-height: 1.4 !important; /* Fixed: Standardised line height prevents bottom text clipping */
     transition: all 0.15s ease-in-out !important;
 }
 
@@ -53,7 +53,7 @@
 .tab-scn-sel  { color: #10b981 !important; border-top: 2px solid #10b981 !important; }
 .tab-nlp-sel  { color: #f43f5e !important; border-top: 2px solid #f43f5e !important; }
 
-/* ACCESSIBILITY FIX: Forces all text elements inside option filters to turn solid white */
+/* Accessibility Fix: Forces all text elements inside option filters to turn solid white */
 div[id*="filter"] label,
 div[id*="selector"] label,
 .custom-tab-item,
