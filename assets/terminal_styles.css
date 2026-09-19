@@ -1,0 +1,50 @@
+/* assets/terminal_styles.css - FRONT-OFFICE HIGH-DENSITY TERMINAL THEME OVERRIDES */
+
+/* 🏢 Master Navigation Header Grid Constraints */
+.custom-tabs-container {
+    height: 54px !important;
+    border-bottom: 1px solid #2d3748 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    width: 100% !important;
+}
+
+/* 📥 Baseline Deselected Multi-Line Tab Elements */
+.custom-tab-item {
+    font-family: monospace !important;
+    font-size: 11px !important;
+    padding: 8px 4px !important;
+    background-color: #0b0d12 !important;
+    color: #a0aec0 !important;
+    border: none !important;
+    flex: 1 !important;
+    text-align: center !important;
+    white-space: pre-line !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+.custom-tab-item:hover {
+    color: #ffffff !important;
+    background-color: #121824 !important;
+}
+
+/* 🎯 High-Contrast Active Tab State Selection Attributes */
+.custom-tab-selected {
+    background-color: #1a202c !important;
+    font-weight: bold !important;
+    flex: 1 !important;
+    text-align: center !important;
+    white-space: pre-line !important;
+}
+
+/* 🎨 Symmetrical Top-Border Color Accent Allocations */
+.tab-home-sel { color: #00d2ff !important; border-top: 2px solid #00d2ff !important; }
+.tab-diag-sel { color: #00ff66 !important; border-top: 2px solid #00ff66 !important; }
+.tab-vol-sel  { color: #ffffff !important; border-top: 2px solid #ffffff !important; }
+.tab-vsm-sel  { color: #00d2ff !important; border-top: 2px solid #00d2ff !important; }
+.tab-cap-sel  { color: #ffffff !important; border-top: 2px solid #ffffff !important; }
+.tab-csm-sel  { color: #ffb300 !important; border-top: 2px solid #ffb300 !important; }
+.tab-fly-sel  { color: #00ff66 !important; border-top: 2px solid #00ff66 !important; }
+.tab-mtx-sel  { color: #ffc107 !important; border-top: 2px solid #ffc107 !important; }
+.tab-scn-sel  { color: #10b981 !important; border-top: 2px solid #10b981 !important; }
+.tab-nlp-sel  { color: #f43f5e !important; border-top: 2px solid #f43f5e !important; }
