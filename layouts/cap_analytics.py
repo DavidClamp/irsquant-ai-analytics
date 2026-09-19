@@ -94,7 +94,7 @@ def render_cap_layout():
                             className="p-4 shadow-sm",
                             children=[
                                 html.Div(
-                                    "📊 AGGREGATED PORTFOLIO STRIKE CHAINS (CAPLET / FLOORLET VECTOR SUMS IN BPS)", 
+                                    "AGGREGATED PORTFOLIO STRIKE CHAINS (CAPLET / FLOORLET VECTOR SUMS IN BPS)", 
                                     style={'color': '#ffffff', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '15px'}
                                 ),
                                 html.Div(id="cap-analytics-table-slot")

@@ -84,7 +84,7 @@ def render_vol_smile_layout():
                             style={'backgroundColor': '#0b0d12', 'border': '1px solid #1a1f2c', 'borderRadius': '6px'},
                             className="p-4 shadow-sm",
                             children=[
-                                html.Div("📈 PARAMETRIC DISCRETE OPTION SMILE TRACKS", style={'color': '#ffffff', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '15px'}),
+                                html.Div("PARAMETRIC DISCRETE OPTION SMILE TRACKS", style={'color': '#ffffff', 'fontWeight': 'bold', 'fontFamily': 'monospace', 'fontSize': '11px', 'marginBottom': '15px'}),
                                 dcc.Graph(id="standalone-smile-plot-slot", style={'height': '380px'}, config={'displayModeBar': False})
                             ]
                         )

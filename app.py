@@ -35,7 +35,7 @@ app = dash.Dash(
     suppress_callback_exceptions=True,
     meta_tags=[
         {"name": "viewport", "content": "width=device-width, initial-scale=1"},
-        {"name": "description", "content": "IRSQuant NextGen Analytics Terminal - Institutional Multi-Currency Interest Rate Derivatives Pricing Desk."}
+        {"name": "description", "content": "IRSQuant NextGen Terminal - Multi-Currency Interest Rate Derivatives Analytics and Trading Tools."}
     ]
 )
 server = app.server
