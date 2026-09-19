@@ -48,3 +48,22 @@
 .tab-mtx-sel  { color: #ffc107 !important; border-top: 2px solid #ffc107 !important; }
 .tab-scn-sel  { color: #10b981 !important; border-top: 2px solid #10b981 !important; }
 .tab-nlp-sel  { color: #f43f5e !important; border-top: 2px solid #f43f5e !important; }
+
+/* 🟢 ACCESSIBILITY FIX: Forces all text elements inside option filters to turn solid white */
+div[id*="filter"] label,
+div[id*="selector"] label,
+.custom-tab-item,
+.form-check-label {
+    color: #ffffff !important;
+    font-family: monospace !important;
+    font-size: 12px !important;
+    opacity: 0.95 !important;
+}
+
+/* Hard-targets raw Dash components inner text labels directly */
+div[id*="filter"] div,
+div[id*="selector"] div,
+div[id*="filter"] {
+    color: #ffffff !important;
+    font-family: monospace !important;
+}
