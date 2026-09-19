@@ -4,6 +4,7 @@ from dash import dcc, html, Input, Output
 import dash_bootstrap_components as dbc
 
 # 🟢 INSTITUTIONAL IMPORTS: Ingesting your modular multi-currency presentation layouts cleanly
+
 from layouts import (
     render_home_portal_layout,
     render_diagnostics_layout,
@@ -14,14 +15,18 @@ from layouts import (
     render_cap_layout,
     render_swaption_layout,
     render_backtester_layout,
+    render_vol_smile_layout,
+    render_cap_smile_layout,
     register_diagnostics_callbacks,
     register_scanner_callbacks,
     register_fly_callbacks,
     register_basis_callbacks,
     register_deep_analysis_callbacks,
     register_backtester_callbacks,
-    register_global_volatility_pipelines
-)
+    register_global_volatility_pipelines,
+    register_vol_smile_callbacks,
+    register_cap_smile_callbacks
+) 
 
 # Initialis core Dash workspace application shell container node natively
 app = dash.Dash(
@@ -70,6 +75,18 @@ app.layout = dbc.Container(
                     selected_className="custom-tab-item--selected"
                 ),
                 dcc.Tab(
+                    label="Cap Smile", 
+                    value="tab-cap-smile",
+                    className="custom-tab-item",
+                    selected_className="custom-tab-item--selected"
+                ),
+                dcc.Tab(
+                    label="Vol Smile", 
+                    value="tab-vol-smile",
+                    className="custom-tab-item",
+                    selected_className="custom-tab-item--selected"
+                ),
+                dcc.Tab(
                     label="RV Fly Sizer", 
                     value="tab-fly-sizer",
                     className="custom-tab-item",
@@ -100,7 +117,8 @@ app.layout = dbc.Container(
         html.Div(id="master-workspace-content-slot")
     ]
 )
-# app.py - PART 2: CENTRAL ROUTER CALLBACKS & MODERN SERVER BOOT (FIXED)
+
+# app.py - PART 2: CENTRAL ROUTER CALLBACKS & MODERN SERVER BOOT
 
 # =========================================================================
 # 🔄 UNIFIED WORKSPACE LAYOUT SWITCHBOARD ROUTER CALLBACK
@@ -128,8 +146,12 @@ def render_workspace_view_segment(active_tab):
         return render_basis_layout()
     elif active_tab == "tab-caplet-stripping":
         return render_cap_layout()
+    elif active_tab == "tab-cap-smile":
+        return render_cap_smile_layout()
     elif active_tab == "tab-option-vol":
         return render_swaption_layout()
+    elif active_tab == "tab-vol-smile":
+        return render_vol_smile_layout()
     elif active_tab == "tab-backtest":
         return render_backtester_layout()
             
@@ -145,8 +167,14 @@ register_scanner_callbacks(app)
 register_fly_callbacks(app)
 register_deep_analysis_callbacks(app)
 register_backtester_callbacks(app)
-register_global_volatility_pipelines(app) # Unified swaption and caplet options channels
+register_global_volatility_pipelines(app) 
+register_vol_smile_callbacks(app) 
+register_basis_callbacks(app)
+register_cap_smile_callbacks(app)
+
+# 🟢 FIXED: Any loose, stray duplicate lines below here are fully erased
 
 if __name__ == "__main__":
-    # 🟢 FIXED: Swapped out app.run_server(debug=True) for modern app.run(debug=True) to clear obsolete blocks
+    # Boot the terminal app directly into the active local foreground loop window
     app.run(debug=True, port=8050)
+
